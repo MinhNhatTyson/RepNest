@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "RepNest",
+    "name": "Repnest",
     "slug": "repnest",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "repnest",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/expo.icon"
     },

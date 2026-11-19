@@ -53,3 +53,31 @@ export type WorkoutDraft = {
   name: string;
   items: WorkoutItem[];
 };
+
+export type PreviousSet = {
+  reps: number | null;
+  weightKg: number | null;
+  seconds: number | null;
+};
+
+export type LoggedSet = PreviousSet & { completedAt: number };
+
+export type ActiveExercise = {
+  key: string; // reuses WorkoutItem.key
+  exerciseId: number;
+  exerciseName: string;
+  type: ExerciseType;
+  targetSets: number;
+  targetReps: number | null;
+  targetSeconds: number | null;
+  restSeconds: number;
+  previous: PreviousSet[]; // sets from the last session with this exercise
+  sets: LoggedSet[];
+};
+
+export type ActiveSession = {
+  workoutId: number | null;
+  name: string;
+  startedAt: number;
+  exercises: ActiveExercise[];
+};

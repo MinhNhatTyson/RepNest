@@ -6,9 +6,9 @@ import { colors } from '../../theme';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 function tabIcon(name: IconName) {
-  return ({ focused, size }: { focused: boolean; size: number }) => (
-    <Ionicons name={name} size={size} color={focused ? colors.primary : colors.textMuted} />
-  );
+  return function TabIcon({ focused, size }: { focused: boolean; size: number }) {
+    return <Ionicons name={name} size={size} color={focused ? colors.primary : colors.textMuted} />;
+  };
 }
 
 export default function TabsLayout() {

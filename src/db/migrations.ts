@@ -54,6 +54,31 @@ const migrations: Migration[] = [
         ON workout_exercises (workout_id, order_index);
     `);
   },
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        workout_id INTEGER REFERENCES workouts (id) ON DELETE SET NULL,
+        name TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        ended_at INTEGER NOT NULL,
+        notes TEXT NOT NULL DEFAULT ''
+      );
+      CREATE TABLE session_sets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
+        exercise_id INTEGER NOT NULL,
+        exercise_name TEXT NOT NULL,
+        set_index INTEGER NOT NULL,
+        reps INTEGER,
+        weight_kg REAL,
+        seconds INTEGER,
+        completed_at INTEGER NOT NULL
+      );
+      CREATE INDEX idx_session_sets_session ON session_sets (session_id, set_index);
+      CREATE INDEX idx_session_sets_exercise ON session_sets (exercise_id, completed_at);
+    `);
+  },
 ];
 
 export async function migrateDb(db: SQLiteDatabase): Promise<void> {

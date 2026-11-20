@@ -59,6 +59,9 @@ export default function ActiveSessionScreen() {
         <Text style={styles.title} numberOfLines={1}>
           {session.name}
         </Text>
+        <Pressable style={styles.discardButton} onPress={() => router.replace('/session/guided')}>
+          <Text style={styles.discardText}>Guided</Text>
+        </Pressable>
         <Pressable style={styles.discardButton} onPress={onDiscard}>
           <Text style={styles.discardText}>Discard</Text>
         </Pressable>

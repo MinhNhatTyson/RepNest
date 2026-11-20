@@ -47,7 +47,7 @@ export default function HomeScreen() {
               <Text style={styles.cardLabel}>IN PROGRESS</Text>
               <Text style={styles.cardTitle}>{activeSession.name}</Text>
             </View>
-            <Pressable style={styles.startButton} onPress={() => router.push('/session/active')}>
+            <Pressable style={styles.startButton} onPress={() => router.push('/session/guided')}>
               <Text style={styles.startText}>Resume workout</Text>
             </Pressable>
           </>

@@ -14,13 +14,13 @@ export async function startWorkout(db: SQLiteDatabase, workoutId: number): Promi
       workout.items.map((i) => i.exerciseId),
     );
     useActiveSessionStore.getState().start(workout, previous);
-    router.push('/session/active');
+    router.push('/session/guided');
   }
 
   if (useActiveSessionStore.getState().session) {
     Alert.alert('Workout in progress', 'Resume it, or discard it and start this one?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Resume', onPress: () => router.push('/session/active') },
+      { text: 'Resume', onPress: () => router.push('/session/guided') },
       { text: 'Start new', style: 'destructive', onPress: begin },
     ]);
     return;

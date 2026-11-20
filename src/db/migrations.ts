@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { SEED_EXERCISES } from './seed';
+import type { ExerciseType } from '../domain/types';
+import { STARTER_PROGRAM } from './starterProgram';
 
 type Migration = (db: SQLiteDatabase) => Promise<void>;
 
@@ -78,6 +80,45 @@ const migrations: Migration[] = [
       CREATE INDEX idx_session_sets_session ON session_sets (session_id, set_index);
       CREATE INDEX idx_session_sets_exercise ON session_sets (exercise_id, completed_at);
     `);
+  },
+  async (db) => {
+    await db.execAsync(`
+      ALTER TABLE workouts ADD COLUMN program TEXT;
+      ALTER TABLE workouts ADD COLUMN program_order INTEGER;
+    `);
+
+    for (const [order, starter] of STARTER_PROGRAM.entries()) {
+      const workout = await db.runAsync(
+        `INSERT INTO workouts (name, notes, created_at, program, program_order)
+         VALUES (?, '', ?, 'starter', ?)`,
+        starter.name,
+        Date.now() - order,
+        order,
+      );
+
+      let position = 0;
+      for (const item of starter.items) {
+        const exercise = await db.getFirstAsync<{ id: number; type: ExerciseType }>(
+          'SELECT id, type FROM exercises WHERE name = ?',
+          item.exercise,
+        );
+        if (!exercise) continue; // defensive: skip names that are not in the library
+        const timed = exercise.type === 'timed';
+        await db.runAsync(
+          `INSERT INTO workout_exercises
+             (workout_id, exercise_id, order_index, target_sets, target_reps, target_seconds, rest_seconds)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          workout.lastInsertRowId,
+          exercise.id,
+          position,
+          item.sets,
+          timed ? null : item.amount,
+          timed ? item.amount : null,
+          starter.restSeconds,
+        );
+        position += 1;
+      }
+    }
   },
 ];
 

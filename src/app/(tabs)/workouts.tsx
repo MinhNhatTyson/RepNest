@@ -5,15 +5,11 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { WorkoutSummary } from '../../domain/types';
 import { colors, minTapTarget, radius, spacing, typography } from '../../theme';
-import { Link, router, useFocusEffect } from 'expo-router';
 import { getPreviousSets } from '../../db/sessionRepository';
-import {
-  getWorkout,
-  deleteWorkout,
-  duplicateWorkout,
-  listWorkouts,
-} from '../../db/workoutRepository';
 import { useActiveSessionStore } from '../../store/activeSessionStore';
+import { Link, useFocusEffect } from 'expo-router';
+import { deleteWorkout, duplicateWorkout, listWorkouts } from '../../db/workoutRepository';
+import { startWorkout } from '../../services/startWorkout';
 
 export default function WorkoutsScreen() {
   const db = useSQLiteContext();
@@ -42,28 +38,6 @@ export default function WorkoutsScreen() {
         },
       },
     ]);
-  }
-  async function startWorkout(workoutId: number) {
-    async function begin() {
-      const workout = await getWorkout(db, workoutId);
-      if (!workout || workout.items.length === 0) return;
-      const previous = await getPreviousSets(
-        db,
-        workout.items.map((i) => i.exerciseId),
-      );
-      useActiveSessionStore.getState().start(workout, previous);
-      router.push('/session/active');
-    }
-
-    if (useActiveSessionStore.getState().session) {
-      Alert.alert('Workout in progress', 'Resume it, or discard it and start this one?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Resume', onPress: () => router.push('/session/active') },
-        { text: 'Start new', style: 'destructive', onPress: begin },
-      ]);
-      return;
-    }
-    await begin();
   }
 
   return (
@@ -100,7 +74,7 @@ export default function WorkoutsScreen() {
               </View>
               <Pressable
                 style={styles.iconButton}
-                onPress={() => startWorkout(item.id)}
+                onPress={() => startWorkout(db, item.id)}
                 accessibilityLabel="Start workout"
               >
                 <Ionicons name="play-circle" size={30} color={colors.primary} />

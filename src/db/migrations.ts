@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { SEED_EXERCISES } from './seed';
 import type { ExerciseType } from '../domain/types';
-import { STARTER_PROGRAM } from './starterProgram';
+import { LITE_WORKOUT, STARTER_PROGRAM } from './starterProgram';
 
 type Migration = (db: SQLiteDatabase) => Promise<void>;
 
@@ -127,6 +127,39 @@ const migrations: Migration[] = [
         value TEXT NOT NULL
       );
     `);
+  },
+  async (db) => {
+    await db.execAsync(`ALTER TABLE sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'full';`);
+
+    const workout = await db.runAsync(
+      `INSERT INTO workouts (name, notes, created_at, program, program_order)
+       VALUES (?, '', ?, 'lite', 0)`,
+      LITE_WORKOUT.name,
+      Date.now() - STARTER_PROGRAM.length,
+    );
+
+    let position = 0;
+    for (const item of LITE_WORKOUT.items) {
+      const exercise = await db.getFirstAsync<{ id: number; type: ExerciseType }>(
+        'SELECT id, type FROM exercises WHERE name = ?',
+        item.exercise,
+      );
+      if (!exercise) continue;
+      const timed = exercise.type === 'timed';
+      await db.runAsync(
+        `INSERT INTO workout_exercises
+           (workout_id, exercise_id, order_index, target_sets, target_reps, target_seconds, rest_seconds)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        workout.lastInsertRowId,
+        exercise.id,
+        position,
+        item.sets,
+        timed ? null : item.amount,
+        timed ? item.amount : null,
+        LITE_WORKOUT.restSeconds,
+      );
+      position += 1;
+    }
   },
 ];
 

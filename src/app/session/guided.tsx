@@ -188,6 +188,12 @@ export default function GuidedSessionScreen() {
     router.replace('/session/active');
   }
 
+  function onFinishEarly() {
+    countdown.stop();
+    setPhase('done'); // shows "You showed up" + "Session N this week"; Finish there saves
+    cue.done();
+  }
+
   // Session was cleared (finished/quit) while the screen is closing.
   if (!session) {
     return <View style={styles.container} />;
@@ -334,7 +340,7 @@ export default function GuidedSessionScreen() {
           </Pressable>
         )}
         {phase !== 'done' && phase !== 'intro' && done > 0 && (
-          <Pressable style={styles.textButton} onPress={onFinish} disabled={saving}>
+          <Pressable style={styles.textButton} onPress={onFinishEarly}>
             <Text style={styles.textButtonText}>Finish early · {done} sets so far</Text>
           </Pressable>
         )}

@@ -37,3 +37,14 @@ export const STARTER_PROGRAM: StarterWorkout[] = [
     ],
   },
 ];
+// Worst-day minimum (P4): about 5 minutes, counts like any other session.
+export const LITE_WORKOUT: StarterWorkout = {
+  name: 'Quick 5',
+  restSeconds: 15,
+  items: [
+    { exercise: 'Bodyweight squat', sets: 2, amount: 10 },
+    { exercise: 'Incline push-up', sets: 2, amount: 8 },
+    { exercise: 'Glute bridge', sets: 2, amount: 10 },
+    { exercise: 'Plank', sets: 2, amount: 20 },
+  ],
+};

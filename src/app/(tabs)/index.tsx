@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link, router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getNextStarterWorkoutId } from '../../db/programRepository';
+import { getLiteWorkoutId, getNextStarterWorkoutId } from '../../db/programRepository';
+import { isComeback } from '../../domain/comeback';
 import { getWorkout } from '../../db/workoutRepository';
 import { estimateMinutes } from '../../domain/program';
 import type { WorkoutDraft } from '../../domain/types';
@@ -20,21 +21,26 @@ export default function HomeScreen() {
   const [workout, setWorkout] = useState<WorkoutDraft | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [week, setWeek] = useState<WeekSummary | null>(null);
+  const [comeback, setComeback] = useState(false);
+  const [liteId, setLiteId] = useState<number | null>(null);
 
   // Reload on every focus so the rotation advances after a finished session.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       async function load() {
-        const [id, times, goal] = await Promise.all([
+        const [id, times, goal, lite] = await Promise.all([
           getNextStarterWorkoutId(db),
           getSessionEndTimes(db),
           getWeeklyGoal(db),
+          getLiteWorkoutId(db),
         ]);
         const next = id === null ? null : await getWorkout(db, id);
         if (!cancelled) {
           setWorkout(next);
           setWeek(summarizeWeek(times, goal, Date.now()));
+          setComeback(isComeback(times, Date.now()));
+          setLiteId(lite);
           setLoaded(true);
         }
       }
@@ -49,6 +55,17 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.content}>
         <Text style={styles.title}>Today</Text>
+
+        <Text style={styles.title}>Today</Text>
+
+        {comeback && !activeSession ? (
+          <View style={styles.welcome}>
+            <Text style={styles.welcomeTitle}>Welcome back</Text>
+            <Text style={styles.welcomeSub}>
+              Good to see you. Pick up right where you left off.
+            </Text>
+          </View>
+        ) : null}
 
         {activeSession ? (
           <>
@@ -88,6 +105,14 @@ export default function HomeScreen() {
           )
         )}
 
+        {!activeSession && liteId !== null ? (
+          <Pressable style={styles.liteButton} onPress={() => startWorkout(db, liteId)}>
+            <Text style={styles.liteText}>
+              {comeback ? 'Ease in: 5-min version' : 'Short on time? 5-min version'}
+            </Text>
+          </Pressable>
+        ) : null}
+
         {week ? (
           <View style={styles.weekCard}>
             <View style={styles.dots}>
@@ -109,6 +134,24 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
+  welcome: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  welcomeTitle: { ...typography.body, fontSize: 20, color: colors.text, fontWeight: '700' },
+  welcomeSub: { ...typography.body, color: colors.textMuted },
+  liteButton: {
+    minHeight: minTapTarget,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liteText: { ...typography.body, color: colors.text, fontWeight: '700' },
   weekCard: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,

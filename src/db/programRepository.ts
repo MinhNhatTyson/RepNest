@@ -19,3 +19,9 @@ export async function getNextStarterWorkoutId(db: SQLiteDatabase): Promise<numbe
     last?.workout_id ?? null,
   );
 }
+export async function getLiteWorkoutId(db: SQLiteDatabase): Promise<number | null> {
+  const row = await db.getFirstAsync<{ id: number }>(
+    `SELECT id FROM workouts WHERE program = 'lite' ORDER BY program_order LIMIT 1`,
+  );
+  return row?.id ?? null;
+}

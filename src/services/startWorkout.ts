@@ -2,17 +2,23 @@ import { Alert } from 'react-native';
 import { router } from 'expo-router';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { getPreviousSets } from '../db/sessionRepository';
-import { getWorkout } from '../db/workoutRepository';
+import { getWorkoutForStart } from '../db/programRepository';
+import type { PreviousSet } from '../domain/types';
 import { useActiveSessionStore } from '../store/activeSessionStore';
 
 export async function startWorkout(db: SQLiteDatabase, workoutId: number): Promise<void> {
   async function begin() {
-    const workout = await getWorkout(db, workoutId);
-    if (!workout || workout.items.length === 0) return;
-    const previous = await getPreviousSets(
-      db,
-      workout.items.map((i) => i.exerciseId),
-    );
+    const loaded = await getWorkoutForStart(db, workoutId);
+    if (!loaded || loaded.workout.items.length === 0) return;
+    const { workout, program } = loaded;
+    // The 5-minute version always uses its own small targets, never last session's numbers.
+    const previous: Record<number, PreviousSet[]> =
+      program === 'lite'
+        ? {}
+        : await getPreviousSets(
+            db,
+            workout.items.map((i) => i.exerciseId),
+          );
     useActiveSessionStore.getState().start(workout, previous);
     router.push('/session/guided');
   }

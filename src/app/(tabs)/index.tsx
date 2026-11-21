@@ -3,7 +3,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link, router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getLiteWorkoutId, getNextStarterWorkoutId } from '../../db/programRepository';
+import {
+  getLiteWorkoutId,
+  getNextStarterWorkoutId,
+  getWorkoutForStart,
+} from '../../db/programRepository';
 import { isComeback } from '../../domain/comeback';
 import { getWorkout } from '../../db/workoutRepository';
 import { estimateMinutes } from '../../domain/program';
@@ -12,7 +16,7 @@ import { startWorkout } from '../../services/startWorkout';
 import { useActiveSessionStore } from '../../store/activeSessionStore';
 import { colors, minTapTarget, radius, spacing, typography } from '../../theme';
 import { getSessionEndTimes } from '../../db/sessionRepository';
-import { getWeeklyGoal } from '../../db/settingsRepository';
+import { getReminderPlan, getWeeklyGoal } from '../../db/settingsRepository';
 import { summarizeWeek, type WeekSummary } from '../../domain/consistency';
 
 export default function HomeScreen() {
@@ -23,25 +27,29 @@ export default function HomeScreen() {
   const [week, setWeek] = useState<WeekSummary | null>(null);
   const [comeback, setComeback] = useState(false);
   const [liteId, setLiteId] = useState<number | null>(null);
+  const [hasReminder, setHasReminder] = useState(false);
 
   // Reload on every focus so the rotation advances after a finished session.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       async function load() {
-        const [id, times, goal, lite] = await Promise.all([
+        const [id, times, goal, lite, plan] = await Promise.all([
           getNextStarterWorkoutId(db),
           getSessionEndTimes(db),
           getWeeklyGoal(db),
           getLiteWorkoutId(db),
+          getReminderPlan(db),
         ]);
-        const next = id === null ? null : await getWorkout(db, id);
+        const loaded = id === null ? null : await getWorkoutForStart(db, id);
+        const next = loaded?.workout ?? null;
         if (!cancelled) {
           setWorkout(next);
           setWeek(summarizeWeek(times, goal, Date.now()));
           setComeback(isComeback(times, Date.now()));
           setLiteId(lite);
           setLoaded(true);
+          setHasReminder(plan.days.length > 0);
         }
       }
       load();
@@ -54,8 +62,6 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.content}>
-        <Text style={styles.title}>Today</Text>
-
         <Text style={styles.title}>Today</Text>
 
         {comeback && !activeSession ? (
@@ -127,6 +133,11 @@ export default function HomeScreen() {
               {week.streak >= 2 ? ` · ${week.streak} weeks in a row` : ''}
             </Text>
           </View>
+        ) : null}
+        {loaded && !hasReminder ? (
+          <Link href="/history" style={styles.link}>
+            Pick your workout days and a reminder
+          </Link>
         ) : null}
       </View>
     </SafeAreaView>

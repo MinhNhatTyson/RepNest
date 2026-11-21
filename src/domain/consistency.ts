@@ -135,3 +135,11 @@ export function completionLines(s: WeekSummary): { headline: string; sub: string
   if (s.streak >= 2) sub += ` ${s.streak} weeks in a row.`;
   return { headline, sub };
 }
+// Calm one-liner about the previous week (P6: never shame).
+export function lastWeekLine(s: WeekSummary): string {
+  if (s.done === 0) return 'Last week was a quiet one. This week is a fresh start.';
+  const sessions = s.done === 1 ? '1 session' : `${s.done} sessions`;
+  return s.remaining === 0
+    ? `Last week: ${sessions}. Goal reached.`
+    : `Last week: ${sessions}. Every one counted.`;
+}

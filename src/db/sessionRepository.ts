@@ -31,12 +31,16 @@ export async function saveSession(db: SQLiteDatabase, session: ActiveSession): P
 
   await db.withTransactionAsync(async () => {
     const result = await db.runAsync(
-      'INSERT INTO sessions (workout_id, name, started_at, ended_at, notes) VALUES (?, ?, ?, ?, ?)',
+      `INSERT INTO sessions (workout_id, name, started_at, ended_at, notes, kind)
+      VALUES (?, ?, ?, ?, ?,
+        CASE WHEN EXISTS (SELECT 1 FROM workouts WHERE id = ? AND program = 'lite')
+              THEN 'lite' ELSE 'full' END)`,
       session.workoutId,
       session.name,
       session.startedAt,
       Date.now(),
       '',
+      session.workoutId,
     );
     sessionId = result.lastInsertRowId;
 

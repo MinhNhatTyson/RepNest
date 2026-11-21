@@ -6,7 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stepper } from '../../components/Stepper';
 import { getSessionEndTimes } from '../../db/sessionRepository';
 import { getWeeklyGoal, setWeeklyGoal } from '../../db/settingsRepository';
-import { MAX_WEEKLY_GOAL, buildCalendar, summarizeWeek } from '../../domain/consistency';
+import {
+  MAX_WEEKLY_GOAL,
+  addDays,
+  buildCalendar,
+  lastWeekLine,
+  startOfWeek,
+  summarizeWeek,
+} from '../../domain/consistency';
 import { colors, radius, spacing, typography } from '../../theme';
 import { ReminderCard } from '../../components/ReminderCard';
 
@@ -45,6 +52,10 @@ export default function HistoryScreen() {
   const { goal, times, now } = snap;
   const week = summarizeWeek(times, goal, now);
   const calendar = buildCalendar(times, goal, now);
+  const thisWeekStart = startOfWeek(now);
+  // Day-one users get no "quiet week" line: only show it once there is history before this week.
+  const showLastWeek = times.some((t) => t < thisWeekStart);
+  const lastWeek = summarizeWeek(times, goal, addDays(thisWeekStart, -1));
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -70,6 +81,7 @@ export default function HistoryScreen() {
               ? 'Goal reached this week. Nice.'
               : `${week.done} of ${goal} this week`}
           </Text>
+          {showLastWeek ? <Text style={styles.muted}>{lastWeekLine(lastWeek)}</Text> : null}
           <Text style={styles.footnote}>A missed week is forgiven once every 4 weeks.</Text>
         </View>
 

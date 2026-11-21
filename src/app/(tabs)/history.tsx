@@ -8,6 +8,7 @@ import { getSessionEndTimes } from '../../db/sessionRepository';
 import { getWeeklyGoal, setWeeklyGoal } from '../../db/settingsRepository';
 import { MAX_WEEKLY_GOAL, buildCalendar, summarizeWeek } from '../../domain/consistency';
 import { colors, radius, spacing, typography } from '../../theme';
+import { ReminderCard } from '../../components/ReminderCard';
 
 type Snapshot = { goal: number; times: number[]; now: number };
 
@@ -75,6 +76,7 @@ export default function HistoryScreen() {
         <View style={styles.card}>
           <Stepper label="Workouts per week" value={goal} step={1} min={1} onChange={changeGoal} />
         </View>
+        <ReminderCard />
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Last 6 weeks</Text>

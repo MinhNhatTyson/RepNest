@@ -1,5 +1,26 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { DEFAULT_WEEKLY_GOAL, MAX_WEEKLY_GOAL } from '../domain/consistency';
+import {
+  DEFAULT_REMINDER_MINUTE,
+  MAX_MINUTE_OF_DAY,
+  parseDays,
+  type ReminderPlan,
+} from '../domain/reminders';
+
+export async function getReminderPlan(db: SQLiteDatabase): Promise<ReminderPlan> {
+  const [rawDays, rawTime] = await Promise.all([
+    getSetting(db, 'reminder_days'),
+    getSetting(db, 'reminder_time'),
+  ]);
+  const t = Number(rawTime);
+  const valid = rawTime !== null && Number.isInteger(t) && t >= 0 && t <= MAX_MINUTE_OF_DAY;
+  return { days: parseDays(rawDays), minuteOfDay: valid ? t : DEFAULT_REMINDER_MINUTE };
+}
+
+export async function setReminderPlan(db: SQLiteDatabase, plan: ReminderPlan): Promise<void> {
+  await setSetting(db, 'reminder_days', plan.days.join(','));
+  await setSetting(db, 'reminder_time', String(plan.minuteOfDay));
+}
 
 export async function getSetting(db: SQLiteDatabase, key: string): Promise<string | null> {
   const row = await db.getFirstAsync<{ value: string }>(

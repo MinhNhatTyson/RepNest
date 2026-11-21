@@ -9,9 +9,10 @@ type Props = {
   min: number;
   unit?: string;
   onChange: (value: number) => void;
+  format?: (value: number) => string;
 };
 
-export function Stepper({ label, value, step, min, unit = '', onChange }: Props) {
+export function Stepper({ label, value, step, min, unit = '', format, onChange }: Props) {
   return (
     <View style={styles.row}>
       <Text style={styles.label}>{label}</Text>
@@ -23,10 +24,7 @@ export function Stepper({ label, value, step, min, unit = '', onChange }: Props)
         >
           <Ionicons name="remove" size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.value}>
-          {value}
-          {unit}
-        </Text>
+        <Text style={styles.value}>{format ? format(value) : `${value}${unit}`}</Text>
         <Pressable
           style={styles.button}
           onPress={() => onChange(value + step)}

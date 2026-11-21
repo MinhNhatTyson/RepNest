@@ -10,22 +10,31 @@ import type { WorkoutDraft } from '../../domain/types';
 import { startWorkout } from '../../services/startWorkout';
 import { useActiveSessionStore } from '../../store/activeSessionStore';
 import { colors, minTapTarget, radius, spacing, typography } from '../../theme';
+import { getSessionEndTimes } from '../../db/sessionRepository';
+import { getWeeklyGoal } from '../../db/settingsRepository';
+import { summarizeWeek, type WeekSummary } from '../../domain/consistency';
 
 export default function HomeScreen() {
   const db = useSQLiteContext();
   const activeSession = useActiveSessionStore((s) => s.session);
   const [workout, setWorkout] = useState<WorkoutDraft | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [week, setWeek] = useState<WeekSummary | null>(null);
 
   // Reload on every focus so the rotation advances after a finished session.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       async function load() {
-        const id = await getNextStarterWorkoutId(db);
+        const [id, times, goal] = await Promise.all([
+          getNextStarterWorkoutId(db),
+          getSessionEndTimes(db),
+          getWeeklyGoal(db),
+        ]);
         const next = id === null ? null : await getWorkout(db, id);
         if (!cancelled) {
           setWorkout(next);
+          setWeek(summarizeWeek(times, goal, Date.now()));
           setLoaded(true);
         }
       }
@@ -78,12 +87,38 @@ export default function HomeScreen() {
             </View>
           )
         )}
+
+        {week ? (
+          <View style={styles.weekCard}>
+            <View style={styles.dots}>
+              {Array.from({ length: Math.max(week.goal, week.done) }, (_, i) => (
+                <View key={i} style={[styles.dot, i < week.done && styles.dotFilled]} />
+              ))}
+            </View>
+            <Text style={styles.weekText}>
+              {week.remaining === 0
+                ? 'Weekly goal reached.'
+                : `${week.done} of ${week.goal} this week`}
+              {week.streak >= 2 ? ` · ${week.streak} weeks in a row` : ''}
+            </Text>
+          </View>
+        ) : null}
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  weekCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  dots: { flexDirection: 'row', gap: spacing.sm },
+  dot: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.surfaceRaised },
+  dotFilled: { backgroundColor: colors.success },
+  weekText: { ...typography.body, color: colors.textMuted },
   container: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1, padding: spacing.lg, gap: spacing.md },
   title: { ...typography.title, color: colors.text },

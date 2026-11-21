@@ -61,3 +61,10 @@ export async function saveSession(db: SQLiteDatabase, session: ActiveSession): P
 
   return sessionId;
 }
+// When each finished session ended (ms since epoch), oldest first.
+export async function getSessionEndTimes(db: SQLiteDatabase): Promise<number[]> {
+  const rows = await db.getAllAsync<{ ended_at: number }>(
+    'SELECT ended_at FROM sessions ORDER BY ended_at',
+  );
+  return rows.map((r) => r.ended_at);
+}

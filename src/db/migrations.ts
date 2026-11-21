@@ -120,6 +120,14 @@ const migrations: Migration[] = [
       }
     }
   },
+  async (db) => {
+    await db.execAsync(`
+      CREATE TABLE settings (
+        key TEXT PRIMARY KEY NOT NULL,
+        value TEXT NOT NULL
+      );
+    `);
+  },
 ];
 
 export async function migrateDb(db: SQLiteDatabase): Promise<void> {

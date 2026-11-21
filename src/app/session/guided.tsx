@@ -6,13 +6,15 @@ import { router, Stack } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getExerciseById } from '../../db/exerciseRepository';
-import { saveSession } from '../../db/sessionRepository';
 import { buildLoggedSet, currentStep, setProgress } from '../../domain/guided';
 import { suggestSet } from '../../domain/session';
 import type { ActiveExercise } from '../../domain/types';
 import { useCountdown } from '../../hooks/useCountdown';
 import { useActiveSessionStore } from '../../store/activeSessionStore';
 import { colors, minTapTarget, radius, spacing, typography } from '../../theme';
+import { getSessionEndTimes, saveSession } from '../../db/sessionRepository';
+import { getWeeklyGoal } from '../../db/settingsRepository';
+import { completionLines, summarizeWeek, type WeekSummary } from '../../domain/consistency';
 
 type Phase = 'intro' | 'ready' | 'work' | 'rest' | 'done';
 
@@ -37,6 +39,7 @@ export default function GuidedSessionScreen() {
   const [phase, setPhase] = useState<Phase>('intro');
   const [instructions, setInstructions] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState(false);
+  const [week, setWeek] = useState<WeekSummary | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -59,6 +62,21 @@ export default function GuidedSessionScreen() {
 
   // The actions below read the store with getState() so that timer callbacks
   // created in an older render never see stale data.
+  // When the workout is done, work out "Session N this week". The session is only
+  // saved on Finish, so the current moment is added to the saved ones.
+  useEffect(() => {
+    if (phase !== 'done') return;
+    let cancelled = false;
+    async function loadWeek() {
+      const [times, goal] = await Promise.all([getSessionEndTimes(db), getWeeklyGoal(db)]);
+      const now = Date.now();
+      if (!cancelled) setWeek(summarizeWeek([...times, now], goal, now));
+    }
+    loadWeek();
+    return () => {
+      cancelled = true;
+    };
+  }, [db, phase]);
   function step() {
     return currentStep(useActiveSessionStore.getState().session);
   }
@@ -182,6 +200,7 @@ export default function GuidedSessionScreen() {
   const timed = exercise?.type === 'timed';
   const instruction = exercise ? instructions[exercise.exerciseId] : undefined;
   const setLabel = next ? `SET ${next.setIndex + 1} OF ${next.exercise.targetSets}` : '';
+  const lines = week ? completionLines(week) : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -264,6 +283,17 @@ export default function GuidedSessionScreen() {
             <Text style={styles.label}>DONE</Text>
             <Text style={styles.heading}>You showed up.</Text>
             <Text style={styles.sub}>{done} sets completed. Nice work.</Text>
+            {week && lines ? (
+              <View style={styles.weekCard}>
+                <Text style={styles.weekHeadline}>{lines.headline}</Text>
+                <View style={styles.dots}>
+                  {Array.from({ length: Math.max(week.goal, week.done) }, (_, i) => (
+                    <View key={i} style={[styles.dot, i < week.done && styles.dotFilled]} />
+                  ))}
+                </View>
+                <Text style={styles.sub}>{lines.sub}</Text>
+              </View>
+            ) : null}
           </>
         )}
       </View>
@@ -342,6 +372,17 @@ const styles = StyleSheet.create({
   bigNumber: { ...typography.bigNumber, fontSize: 96, lineHeight: 104, color: colors.text },
   unit: { ...typography.body, color: colors.textMuted },
   instruction: { ...typography.body, color: colors.textMuted, lineHeight: 24 },
+  weekCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  weekHeadline: { ...typography.body, fontSize: 20, color: colors.text, fontWeight: '700' },
+  dots: { flexDirection: 'row', gap: spacing.sm },
+  dot: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.surfaceRaised },
+  dotFilled: { backgroundColor: colors.success },
   footer: { padding: spacing.md, gap: spacing.sm },
   primaryButton: {
     minHeight: minTapTarget + 16,

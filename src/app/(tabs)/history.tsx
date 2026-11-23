@@ -16,6 +16,7 @@ import {
 } from '../../domain/consistency';
 import { colors, radius, spacing, typography } from '../../theme';
 import { ReminderCard } from '../../components/ReminderCard';
+import { BackupCard } from '../../components/BackupCard';
 
 type Snapshot = { goal: number; times: number[]; now: number };
 
@@ -123,6 +124,8 @@ export default function HistoryScreen() {
             </View>
           ))}
         </View>
+
+        <BackupCard />
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Chip } from './Chip';
@@ -9,45 +9,72 @@ import {
   MAX_MINUTE_OF_DAY,
   REMINDER_STEP_MINUTES,
   formatMinuteOfDay,
+  formatNextReminder,
+  formatPlan,
+  nextReminderAt,
+  samePlan,
   type ReminderPlan,
 } from '../domain/reminders';
-import { applyReminders, ensureReminderPermission, sendTestReminder } from '../services/reminders';
-import { colors, radius, spacing, typography } from '../theme';
+import {
+  applyReminders,
+  ensureExactAlarmAccess,
+  ensureReminderPermission,
+  sendTestReminder,
+} from '../services/reminders';
+import { colors, minTapTarget, radius, spacing, typography } from '../theme';
+
+// "today at 08:30". Called from handlers, never during render.
+function nextLabel(plan: ReminderPlan): string | null {
+  const now = Date.now();
+  const next = nextReminderAt(plan, now);
+  return next === null ? null : formatNextReminder(next, now);
+}
 
 export function ReminderCard() {
   const db = useSQLiteContext();
-  const [plan, setPlan] = useState<ReminderPlan | null>(null);
+  const [saved, setSaved] = useState<ReminderPlan | null>(null); // what is really scheduled
+  const [draft, setDraft] = useState<ReminderPlan | null>(null); // what the controls show
+  const [next, setNext] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [blocked, setBlocked] = useState(false);
-  // Taps are applied one after another, so fast changes can't double-schedule.
-  const queue = useRef<Promise<void>>(Promise.resolve());
+  const [approximate, setApproximate] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     getReminderPlan(db).then((p) => {
-      if (!cancelled) setPlan(p);
+      if (cancelled) return;
+      setSaved(p);
+      setDraft(p);
+      setNext(nextLabel(p));
     });
     return () => {
       cancelled = true;
     };
   }, [db]);
 
-  function update(next: ReminderPlan) {
-    setPlan(next);
-    queue.current = queue.current.then(async () => {
-      try {
-        await setReminderPlan(db, next);
-        if (next.days.length === 0) {
-          setBlocked(false);
-          await applyReminders(next);
-          return;
-        }
+  async function onSave() {
+    if (!draft || busy) return;
+    setBusy(true);
+    try {
+      if (draft.days.length > 0) {
         const allowed = await ensureReminderPermission();
         setBlocked(!allowed);
-        if (allowed) await applyReminders(next);
-      } catch {
-        Alert.alert('Could not set the reminder');
+        if (!allowed) return; // nothing is saved while notifications are off
+        setApproximate(!(await ensureExactAlarmAccess()));
+      } else {
+        setBlocked(false);
+        setApproximate(false);
       }
-    });
+      const scheduled = await applyReminders(draft);
+      if (scheduled !== draft.days.length) throw new Error('Reminders were not scheduled');
+      await setReminderPlan(db, draft);
+      setSaved(draft);
+      setNext(nextLabel(draft));
+    } catch {
+      Alert.alert('Could not set the reminder');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function onTest() {
@@ -63,23 +90,28 @@ export function ReminderCard() {
     }
   }
 
-  if (!plan) return null;
+  if (!saved || !draft) return null;
+
+  const dirty = !samePlan(draft, saved);
 
   function toggleDay(day: number) {
-    if (!plan) return;
-    const days = plan.days.includes(day)
-      ? plan.days.filter((d) => d !== day)
-      : [...plan.days, day].sort((a, b) => a - b);
-    update({ ...plan, days });
+    setDraft((d) =>
+      d
+        ? {
+            ...d,
+            days: d.days.includes(day)
+              ? d.days.filter((x) => x !== day)
+              : [...d.days, day].sort((a, b) => a - b),
+          }
+        : d,
+    );
   }
 
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Reminders</Text>
       <Text style={styles.muted}>
-        {plan.days.length === 0
-          ? 'Pick the days you plan to train.'
-          : `${formatMinuteOfDay(plan.minuteOfDay)} on your chosen days.`}
+        {draft.days.length === 0 ? 'Pick the days you plan to train, then tap Save.' : formatPlan(draft)}
       </Text>
 
       <View style={styles.days}>
@@ -87,7 +119,7 @@ export function ReminderCard() {
           <Chip
             key={label}
             label={label}
-            selected={plan.days.includes(day)}
+            selected={draft.days.includes(day)}
             onPress={() => toggleDay(day)}
           />
         ))}
@@ -95,12 +127,26 @@ export function ReminderCard() {
 
       <Stepper
         label="Time"
-        value={plan.minuteOfDay}
+        value={draft.minuteOfDay}
         step={REMINDER_STEP_MINUTES}
         min={0}
         format={formatMinuteOfDay}
-        onChange={(v) => update({ ...plan, minuteOfDay: Math.min(MAX_MINUTE_OF_DAY, v) })}
+        onChange={(v) => setDraft({ ...draft, minuteOfDay: Math.min(MAX_MINUTE_OF_DAY, v) })}
       />
+
+      {dirty ? (
+        <Pressable
+          style={[styles.saveButton, busy && styles.disabled]}
+          disabled={busy}
+          onPress={onSave}
+        >
+          <Text style={styles.saveText}>
+            {busy ? 'Saving...' : draft.days.length === 0 ? 'Turn reminders off' : 'Save reminder'}
+          </Text>
+        </Pressable>
+      ) : saved.days.length > 0 && next ? (
+        <Text style={styles.status}>Saved. Next reminder {next}.</Text>
+      ) : null}
 
       {blocked ? (
         <Text style={styles.muted}>
@@ -108,11 +154,16 @@ export function ReminderCard() {
         </Text>
       ) : null}
 
-      {__DEV__ ? (
-        <Pressable style={styles.testButton} onPress={onTest}>
-          <Text style={styles.testText}>Send test reminder (dev)</Text>
-        </Pressable>
+      {approximate ? (
+        <Text style={styles.muted}>
+          Your phone may deliver reminders a few minutes late. For exact times, allow
+          &quot;Alarms &amp; reminders&quot; for Repnest in your phone settings.
+        </Text>
       ) : null}
+
+      <Pressable style={styles.testButton} onPress={onTest}>
+        <Text style={styles.testText}>Send a test reminder</Text>
+      </Pressable>
     </View>
   );
 }
@@ -127,6 +178,16 @@ const styles = StyleSheet.create({
   title: { ...typography.body, color: colors.text, fontWeight: '700' },
   muted: { ...typography.body, color: colors.textMuted },
   days: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  saveButton: {
+    minHeight: minTapTarget,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+  },
+  saveText: { ...typography.body, color: colors.onPrimary, fontWeight: '700' },
+  status: { ...typography.body, color: colors.success, fontWeight: '600' },
+  disabled: { opacity: 0.4 },
   testButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   testText: { ...typography.caption, color: colors.textMuted },
 });

@@ -17,7 +17,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.Nhat.repnest"
     },
     "web": {
       "output": "server",
@@ -34,11 +35,28 @@
         }
       ],
       "expo-sqlite",
-      ["expo-notifications", { "color": "#FF8A3D" }]
+      [
+        "expo-notifications",
+        {
+          "color": "#FF8A3D"
+        }
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "14c318c7-dd7b-475a-babd-de5f569f4816"
+      }
+    },
+    "owner": "m1nnat"
   }
 }

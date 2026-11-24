@@ -102,3 +102,132 @@ export function summarizeBackup(backup: Backup): {
     sets: backup.data.sessionSets.length,
   };
 }
+export type ParseBackupResult = { ok: true; backup: Backup } | { ok: false; reason: string };
+
+type FieldKind = 'int' | 'num' | 'str' | 'intOrNull' | 'numOrNull' | 'strOrNull';
+
+// Every column of every table, with the type it must have. Missing = invalid.
+const TABLE_SPEC: Record<keyof BackupData, Record<string, FieldKind>> = {
+  workouts: {
+    id: 'int',
+    name: 'str',
+    notes: 'str',
+    created_at: 'num',
+    program: 'strOrNull',
+    program_order: 'intOrNull',
+  },
+  workoutExercises: {
+    id: 'int',
+    workout_id: 'int',
+    exercise_id: 'int',
+    order_index: 'int',
+    target_sets: 'int',
+    target_reps: 'intOrNull',
+    target_seconds: 'intOrNull',
+    rest_seconds: 'int',
+  },
+  sessions: {
+    id: 'int',
+    workout_id: 'intOrNull',
+    name: 'str',
+    started_at: 'num',
+    ended_at: 'num',
+    notes: 'str',
+    kind: 'str',
+  },
+  sessionSets: {
+    id: 'int',
+    session_id: 'int',
+    exercise_id: 'int',
+    exercise_name: 'str',
+    set_index: 'int',
+    reps: 'intOrNull',
+    weight_kg: 'numOrNull',
+    seconds: 'intOrNull',
+    completed_at: 'num',
+  },
+  settings: { key: 'str', value: 'str' },
+  customExercises: {
+    id: 'int',
+    name: 'str',
+    muscle_group: 'str',
+    equipment: 'str',
+    type: 'str',
+    instructions: 'str',
+  },
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function fieldOk(value: unknown, kind: FieldKind): boolean {
+  if (value === null) return kind.endsWith('OrNull');
+  if (kind === 'str' || kind === 'strOrNull') return typeof value === 'string';
+  if (typeof value !== 'number' || !Number.isFinite(value)) return false;
+  return kind === 'int' || kind === 'intOrNull' ? Number.isInteger(value) : true;
+}
+
+const fail = (reason: string): ParseBackupResult => ({ ok: false, reason });
+const DAMAGED = 'This backup contains damaged data.';
+
+// Checks a backup file's text before anything touches the database.
+// Only a backup made at the same schema version as the app is accepted for now.
+export function parseBackup(text: string, currentSchemaVersion: number): ParseBackupResult {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return fail('This file is not a valid backup.');
+  }
+
+  if (!isRecord(raw) || raw.app !== BACKUP_APP) return fail('This is not a Repnest backup.');
+  if (raw.format !== BACKUP_FORMAT) return fail('This backup format is not supported.');
+
+  const version = raw.schemaVersion;
+  const exportedAt = raw.exportedAt;
+  const data = raw.data;
+  if (typeof version !== 'number' || !Number.isInteger(version)) return fail(DAMAGED);
+  if (typeof exportedAt !== 'number' || !isRecord(data)) return fail(DAMAGED);
+  if (version > currentSchemaVersion) {
+    return fail('This backup was made by a newer version of Repnest. Update the app first.');
+  }
+  if (version < currentSchemaVersion) {
+    return fail('This backup was made by an older version of Repnest and cannot be restored yet.');
+  }
+
+  for (const table of Object.keys(TABLE_SPEC) as (keyof BackupData)[]) {
+    const rows = data[table];
+    if (!Array.isArray(rows)) return fail('This backup is incomplete.');
+    for (const row of rows) {
+      if (!isRecord(row)) return fail(DAMAGED);
+      for (const [field, kind] of Object.entries(TABLE_SPEC[table])) {
+        if (!fieldOk(row[field], kind)) return fail(DAMAGED);
+      }
+    }
+  }
+
+  // Every field has the right type now, so the cast is safe.
+  const typed = data as BackupData;
+  const workoutIds = new Set(typed.workouts.map((w) => w.id));
+  const sessionIds = new Set(typed.sessions.map((s) => s.id));
+  const linksOk =
+    typed.workoutExercises.every((r) => workoutIds.has(r.workout_id)) &&
+    typed.sessions.every((s) => s.workout_id === null || workoutIds.has(s.workout_id)) &&
+    typed.sessionSets.every((r) => sessionIds.has(r.session_id));
+  const valuesOk =
+    typed.sessions.every((s) => s.kind === 'full' || s.kind === 'lite') &&
+    typed.customExercises.every((e) => e.type === 'reps' || e.type === 'timed');
+  if (!linksOk || !valuesOk) return fail(DAMAGED);
+
+  return {
+    ok: true,
+    backup: {
+      app: BACKUP_APP,
+      format: BACKUP_FORMAT,
+      schemaVersion: version,
+      exportedAt,
+      data: typed,
+    },
+  };
+}

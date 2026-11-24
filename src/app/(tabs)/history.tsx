@@ -25,9 +25,16 @@ const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 export default function HistoryScreen() {
   const db = useSQLiteContext();
   const [snap, setSnap] = useState<Snapshot | null>(null);
+  const [restoreCount, setRestoreCount] = useState(0); // bumps to remount ReminderCard
+
+  const loadSnapshot = useCallback(async () => {
+    const [goal, times] = await Promise.all([getWeeklyGoal(db), getSessionEndTimes(db)]);
+    setSnap({ goal, times, now: Date.now() });
+  }, [db]);
 
   useFocusEffect(
     useCallback(() => {
+      loadSnapshot();
       let cancelled = false;
       async function load() {
         const [goal, times] = await Promise.all([getWeeklyGoal(db), getSessionEndTimes(db)]);
@@ -37,7 +44,7 @@ export default function HistoryScreen() {
       return () => {
         cancelled = true;
       };
-    }, [db]),
+    }, [loadSnapshot]),
   );
 
   async function changeGoal(next: number) {
@@ -60,7 +67,7 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>History</Text>
 
         <View style={styles.card}>
@@ -89,7 +96,7 @@ export default function HistoryScreen() {
         <View style={styles.card}>
           <Stepper label="Workouts per week" value={goal} step={1} min={1} onChange={changeGoal} />
         </View>
-        <ReminderCard />
+        <ReminderCard key={restoreCount} />
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Last 6 weeks</Text>
@@ -125,7 +132,12 @@ export default function HistoryScreen() {
           ))}
         </View>
 
-        <BackupCard />
+        <BackupCard
+          onRestored={() => {
+            loadSnapshot();
+            setRestoreCount((n) => n + 1);
+          }}
+        />
       </ScrollView>
     </SafeAreaView>
   );

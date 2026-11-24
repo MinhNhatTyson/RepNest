@@ -6,6 +6,7 @@ import {
   parseDays,
   samePlan,
   toExpoWeekday,
+  parseTimePart,
 } from '../reminders';
 
 // Tests run in America/New_York (see jest.global-setup.js). Calendar facts for 2026:
@@ -45,7 +46,7 @@ describe('formatMinuteOfDay', () => {
     expect(formatMinuteOfDay(0)).toBe('00:00');
     expect(formatMinuteOfDay(MIN_0830)).toBe('08:30');
     expect(formatMinuteOfDay(MIN_1800)).toBe('18:00');
-    expect(formatMinuteOfDay(23 * 60 + 45)).toBe('23:45');
+    expect(formatMinuteOfDay(23 * 60 + 59)).toBe('23:59');
   });
 });
 
@@ -162,5 +163,22 @@ describe('formatNextReminder', () => {
     expect(formatNextReminder(at(2026, 10, 1, 8, 30), at(2026, 9, 31, 23, 30))).toBe(
       'tomorrow at 08:30',
     );
+  });
+});
+describe('parseTimePart', () => {
+  it('accepts 1-2 digit values within the limit', () => {
+    expect(parseTimePart('0', 23)).toBe(0);
+    expect(parseTimePart('07', 23)).toBe(7);
+    expect(parseTimePart('23', 23)).toBe(23);
+    expect(parseTimePart('59', 59)).toBe(59);
+  });
+
+  it('rejects empty, too large, non-numeric and too long input', () => {
+    expect(parseTimePart('', 23)).toBeNull();
+    expect(parseTimePart('24', 23)).toBeNull();
+    expect(parseTimePart('60', 59)).toBeNull();
+    expect(parseTimePart('x', 23)).toBeNull();
+    expect(parseTimePart('-1', 23)).toBeNull();
+    expect(parseTimePart('123', 59)).toBeNull();
   });
 });

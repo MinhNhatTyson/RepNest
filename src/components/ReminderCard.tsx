@@ -2,13 +2,10 @@ import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { Chip } from './Chip';
-import { Stepper } from './Stepper';
 import { getReminderPlan, setReminderPlan } from '../db/settingsRepository';
+import { TimeInput } from './TimeInput';
 import {
   DAY_LABELS,
-  MAX_MINUTE_OF_DAY,
-  REMINDER_STEP_MINUTES,
-  formatMinuteOfDay,
   formatNextReminder,
   formatPlan,
   nextReminderAt,
@@ -111,7 +108,9 @@ export function ReminderCard() {
     <View style={styles.card}>
       <Text style={styles.title}>Reminders</Text>
       <Text style={styles.muted}>
-        {draft.days.length === 0 ? 'Pick the days you plan to train, then tap Save.' : formatPlan(draft)}
+        {draft.days.length === 0
+          ? 'Pick the days you plan to train, then tap Save.'
+          : formatPlan(draft)}
       </Text>
 
       <View style={styles.days}>
@@ -125,13 +124,9 @@ export function ReminderCard() {
         ))}
       </View>
 
-      <Stepper
-        label="Time"
-        value={draft.minuteOfDay}
-        step={REMINDER_STEP_MINUTES}
-        min={0}
-        format={formatMinuteOfDay}
-        onChange={(v) => setDraft({ ...draft, minuteOfDay: Math.min(MAX_MINUTE_OF_DAY, v) })}
+      <TimeInput
+        minuteOfDay={draft.minuteOfDay}
+        onChange={(minuteOfDay) => setDraft({ ...draft, minuteOfDay })}
       />
 
       {dirty ? (
@@ -156,8 +151,8 @@ export function ReminderCard() {
 
       {approximate ? (
         <Text style={styles.muted}>
-          Your phone may deliver reminders a few minutes late. For exact times, allow
-          &quot;Alarms &amp; reminders&quot; for Repnest in your phone settings.
+          Your phone may deliver reminders a few minutes late. For exact times, allow &quot;Alarms
+          &amp; reminders&quot; for Repnest in your phone settings.
         </Text>
       ) : null}
 

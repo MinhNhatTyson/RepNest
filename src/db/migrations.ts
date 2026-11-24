@@ -162,6 +162,7 @@ const migrations: Migration[] = [
     }
   },
 ];
+export const SCHEMA_VERSION = migrations.length;
 
 export async function migrateDb(db: SQLiteDatabase): Promise<void> {
   await db.execAsync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');

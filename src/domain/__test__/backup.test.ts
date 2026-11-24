@@ -5,6 +5,8 @@ import {
   buildBackup,
   serializeBackup,
   summarizeBackup,
+  parseBackup,
+  type Backup,
   type BackupData,
 } from '../backup';
 
@@ -111,7 +113,11 @@ describe('summarizeBackup', () => {
       settings: [],
       customExercises: [],
     };
-    expect(summarizeBackup(buildBackup(empty, 6, 0))).toEqual({ workouts: 0, sessions: 0, sets: 0 });
+    expect(summarizeBackup(buildBackup(empty, 6, 0))).toEqual({
+      workouts: 0,
+      sessions: 0,
+      sets: 0,
+    });
   });
 });
 
@@ -130,5 +136,116 @@ describe('backupFileName', () => {
   it('works on the DST days', () => {
     expect(backupFileName(at(2026, 2, 8, 12))).toBe('repnest-backup-2026-03-08.json');
     expect(backupFileName(at(2026, 10, 1, 12))).toBe('repnest-backup-2026-11-01.json');
+  });
+});
+describe('parseBackup', () => {
+  // A fresh deep copy each time, so tests can break it freely.
+  const valid = (): Backup => JSON.parse(serializeBackup(buildBackup(data, 6, 123456)));
+  const parse = (b: Backup, version = 6) => parseBackup(JSON.stringify(b), version);
+  const reasonOf = (b: Backup, version = 6) => {
+    const result = parse(b, version);
+    return result.ok ? null : result.reason;
+  };
+
+  it('accepts a backup it just exported, nulls and all', () => {
+    const result = parse(valid());
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.backup).toEqual(buildBackup(data, 6, 123456));
+  });
+
+  it('rejects text that is not JSON', () => {
+    expect(parseBackup('hello', 6)).toEqual({
+      ok: false,
+      reason: 'This file is not a valid backup.',
+    });
+    expect(parseBackup('', 6).ok).toBe(false);
+  });
+
+  it('rejects JSON that is not a backup, or that is some other app', () => {
+    expect(parseBackup('[]', 6).ok).toBe(false);
+    expect(parseBackup('null', 6).ok).toBe(false);
+    const other = valid();
+    (other as { app: string }).app = 'something-else';
+    expect(reasonOf(other)).toMatch(/not a Repnest backup/);
+  });
+
+  it('rejects an unknown format', () => {
+    const b = valid();
+    (b as { format: number }).format = 2;
+    expect(reasonOf(b)).toMatch(/format/);
+  });
+
+  it('rejects newer and older schema versions with a clear reason', () => {
+    expect(reasonOf(valid(), 5)).toMatch(/newer/);
+    expect(reasonOf(valid(), 7)).toMatch(/older/);
+  });
+
+  it('rejects a missing or non-array table', () => {
+    const missing = valid();
+    delete (missing.data as Partial<BackupData>).sessions;
+    expect(reasonOf(missing)).toMatch(/incomplete/);
+
+    const notArray = valid();
+    (notArray.data as Record<string, unknown>).sessionSets = 'x';
+    expect(reasonOf(notArray)).toMatch(/incomplete/);
+  });
+
+  it('rejects rows with a wrong type, a missing field or a fractional integer', () => {
+    const wrongType = valid();
+    (wrongType.data.workouts[0] as { name: unknown }).name = 5;
+    expect(reasonOf(wrongType)).toMatch(/damaged/);
+
+    const missingField = valid();
+    delete (missingField.data.sessions[0] as Partial<BackupData['sessions'][number]>).ended_at;
+    expect(reasonOf(missingField)).toMatch(/damaged/);
+
+    const fractional = valid();
+    fractional.data.sessionSets[0].reps = 2.5;
+    expect(reasonOf(fractional)).toMatch(/damaged/);
+
+    const notARow = valid();
+    (notARow.data.settings as unknown[]).push('nope');
+    expect(reasonOf(notARow)).toMatch(/damaged/);
+  });
+
+  it('allows fractional kilograms', () => {
+    const b = valid();
+    b.data.sessionSets[0].weight_kg = 2.5;
+    expect(parse(b).ok).toBe(true);
+  });
+
+  it('rejects rows that point at rows that do not exist', () => {
+    const exercise = valid();
+    exercise.data.workoutExercises[0].workout_id = 99;
+    expect(reasonOf(exercise)).toMatch(/damaged/);
+
+    const session = valid();
+    session.data.sessions[0].workout_id = 99;
+    expect(reasonOf(session)).toMatch(/damaged/);
+
+    const set = valid();
+    set.data.sessionSets[0].session_id = 99;
+    expect(reasonOf(set)).toMatch(/damaged/);
+  });
+
+  it('accepts a session whose workout was deleted (workout_id null)', () => {
+    expect(parse(valid()).ok).toBe(true); // the sample data already has one
+  });
+
+  it('rejects a session kind or exercise type the database would refuse', () => {
+    const kind = valid();
+    kind.data.sessions[0].kind = 'weird';
+    expect(reasonOf(kind)).toMatch(/damaged/);
+
+    const type = valid();
+    type.data.customExercises.push({
+      id: 100,
+      name: 'Odd',
+      muscle_group: 'Core',
+      equipment: 'Bodyweight',
+      type: 'sometimes',
+      instructions: '',
+    });
+    expect(reasonOf(type)).toMatch(/damaged/);
   });
 });

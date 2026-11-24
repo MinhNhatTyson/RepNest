@@ -3,7 +3,7 @@ import { startOfDay } from './consistency';
 export const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 export const DEFAULT_REMINDER_MINUTE = 18 * 60; // 18:00
-export const MAX_MINUTE_OF_DAY = 23 * 60 + 45;
+export const MAX_MINUTE_OF_DAY = 23 * 60 + 59;
 export const REMINDER_STEP_MINUTES = 15;
 
 // days: 0 = Monday ... 6 = Sunday (same week as consistency.ts)
@@ -29,6 +29,11 @@ export function formatMinuteOfDay(minuteOfDay: number): string {
   const h = String(Math.floor(minuteOfDay / 60)).padStart(2, '0');
   const m = String(minuteOfDay % 60).padStart(2, '0');
   return `${h}:${m}`;
+}
+export function parseTimePart(text: string, max: number): number | null {
+  if (!/^\d{1,2}$/.test(text)) return null;
+  const n = Number(text);
+  return n <= max ? n : null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;

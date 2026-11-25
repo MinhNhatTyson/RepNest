@@ -45,7 +45,8 @@
           "color": "#FF8A3D"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,

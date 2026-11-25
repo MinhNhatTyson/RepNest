@@ -8,4 +8,10 @@ export const colors = {
   success: '#4FD1C5',
   text: '#F4F1EC',
   textMuted: '#9A9AA3',
+  primarySoft: 'rgba(255, 138, 61, 0.14)',
+  primaryBorder: 'rgba(255, 138, 61, 0.35)',
+  successSoft: 'rgba(79, 209, 197, 0.14)',
+  borderStrong: '#3A3A44',
+  textFaint: '#6B6B74',
+  danger: '#F0645A',
 } as const;

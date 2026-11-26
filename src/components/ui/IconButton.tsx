@@ -1,0 +1,38 @@
+import type { ComponentProps } from 'react';
+import { Pressable, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../theme';
+
+type Props = {
+  icon: ComponentProps<typeof Ionicons>['name'];
+  label: string; // accessibility label
+  onPress: () => void;
+  tone?: 'default' | 'primary';
+  size?: number;
+};
+
+export function IconButton({ icon, label, onPress, tone = 'default', size = 48 }: Props) {
+  const primary = tone === 'primary';
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={({ pressed }) => [
+        styles.base,
+        { width: size, height: size, borderRadius: size / 2 },
+        primary ? styles.primary : styles.default,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons name={icon} size={size * 0.5} color={primary ? colors.primary : colors.text} />
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  base: { alignItems: 'center', justifyContent: 'center' },
+  default: { backgroundColor: colors.surfaceRaised },
+  primary: { backgroundColor: colors.primarySoft },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.95 }] },
+});

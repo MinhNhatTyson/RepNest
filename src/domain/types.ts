@@ -34,6 +34,7 @@ export type WorkoutSummary = {
   id: number;
   name: string;
   exerciseCount: number;
+  program: string | null; // 'starter' or 'lite' for the built-in ones
 };
 
 export type WorkoutItem = {

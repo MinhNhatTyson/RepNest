@@ -6,6 +6,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Ring } from '../../components/ui/Ring';
 import { Screen } from '../../components/ui/Screen';
+import { IconButton } from '../../components/ui/IconButton';
 import {
   getLiteWorkoutId,
   getNextStarterWorkoutId,
@@ -100,7 +101,18 @@ export default function HomeScreen() {
     ) : null;
 
   return (
-    <Screen scroll title="Today" footer={footer}>
+    <Screen
+      scroll
+      title="Today"
+      footer={footer}
+      right={
+        <IconButton
+          icon="settings-outline"
+          label="Settings"
+          onPress={() => router.push('/settings')}
+        />
+      }
+    >
       {dateLabel ? (
         <AppText variant="label" tone="faint">
           {dateLabel.toUpperCase()}
@@ -171,7 +183,7 @@ export default function HomeScreen() {
           size="md"
           icon="notifications-outline"
           label="Pick your workout days and a reminder"
-          onPress={() => router.push('/history')}
+          onPress={() => router.push('/settings')}
         />
       ) : null}
     </Screen>

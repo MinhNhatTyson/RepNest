@@ -1,40 +1,33 @@
 import { useCallback, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Stepper } from '../../components/Stepper';
+import { AppText } from '../../components/ui/AppText';
+import { Card } from '../../components/ui/Card';
+import { Screen } from '../../components/ui/Screen';
 import { getSessionEndTimes } from '../../db/sessionRepository';
-import { getWeeklyGoal, setWeeklyGoal } from '../../db/settingsRepository';
+import { getWeeklyGoal } from '../../db/settingsRepository';
 import {
-  MAX_WEEKLY_GOAL,
   addDays,
   buildCalendar,
   lastWeekLine,
   startOfWeek,
   summarizeWeek,
 } from '../../domain/consistency';
-import { colors, radius, spacing, typography } from '../../theme';
-import { ReminderCard } from '../../components/ReminderCard';
-import { BackupCard } from '../../components/BackupCard';
+import { colors, spacing } from '../../theme';
 
 type Snapshot = { goal: number; times: number[]; now: number };
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const CELL = 32;
 
 export default function HistoryScreen() {
   const db = useSQLiteContext();
   const [snap, setSnap] = useState<Snapshot | null>(null);
-  const [restoreCount, setRestoreCount] = useState(0); // bumps to remount ReminderCard
 
-  const loadSnapshot = useCallback(async () => {
-    const [goal, times] = await Promise.all([getWeeklyGoal(db), getSessionEndTimes(db)]);
-    setSnap({ goal, times, now: Date.now() });
-  }, [db]);
-
+  // Reload on every focus, so a restored backup or a new session shows up right away.
   useFocusEffect(
     useCallback(() => {
-      loadSnapshot();
       let cancelled = false;
       async function load() {
         const [goal, times] = await Promise.all([getWeeklyGoal(db), getSessionEndTimes(db)]);
@@ -44,17 +37,11 @@ export default function HistoryScreen() {
       return () => {
         cancelled = true;
       };
-    }, [loadSnapshot]),
+    }, [db]),
   );
 
-  async function changeGoal(next: number) {
-    const goal = Math.min(MAX_WEEKLY_GOAL, Math.max(1, next));
-    setSnap((s) => (s ? { ...s, goal } : s));
-    await setWeeklyGoal(db, goal);
-  }
-
   if (!snap) {
-    return <SafeAreaView style={styles.container} edges={['top']} />;
+    return <Screen title="History">{null}</Screen>;
   }
 
   const { goal, times, now } = snap;
@@ -66,110 +53,89 @@ export default function HistoryScreen() {
   const lastWeek = summarizeWeek(times, goal, addDays(thisWeekStart, -1));
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>History</Text>
+    <Screen scroll title="History">
+      <Card variant="hero" style={styles.streakCard}>
+        {week.streak > 0 ? (
+          <>
+            <AppText variant="display" tone="primary">
+              {week.streak}
+            </AppText>
+            <AppText variant="bodyStrong" tone="muted">
+              {week.streak === 1 ? 'week in a row' : 'weeks in a row'}
+            </AppText>
+          </>
+        ) : (
+          <>
+            <AppText variant="heading" style={styles.center}>
+              Your streak starts this week
+            </AppText>
+            <AppText tone="muted">Hit your goal once and it begins.</AppText>
+          </>
+        )}
+        <AppText variant="bodyStrong">
+          {week.remaining === 0
+            ? 'Goal reached this week. Nice.'
+            : `${week.done} of ${goal} this week`}
+        </AppText>
+        {showLastWeek ? (
+          <AppText tone="muted" style={styles.center}>
+            {lastWeekLine(lastWeek)}
+          </AppText>
+        ) : null}
+      </Card>
+      <AppText variant="caption" tone="faint" style={styles.center}>
+        A missed week is forgiven once every 4 weeks.
+      </AppText>
 
-        <View style={styles.card}>
-          {week.streak > 0 ? (
-            <View style={styles.streakRow}>
-              <Text style={styles.streakNumber}>{week.streak}</Text>
-              <Text style={styles.streakLabel}>
-                {week.streak === 1 ? 'week in a row' : 'weeks in a row'}
-              </Text>
-            </View>
-          ) : (
-            <>
-              <Text style={styles.cardTitle}>Your streak starts this week</Text>
-              <Text style={styles.muted}>Hit your goal once and it begins.</Text>
-            </>
-          )}
-          <Text style={styles.thisWeek}>
-            {week.remaining === 0
-              ? 'Goal reached this week. Nice.'
-              : `${week.done} of ${goal} this week`}
-          </Text>
-          {showLastWeek ? <Text style={styles.muted}>{lastWeekLine(lastWeek)}</Text> : null}
-          <Text style={styles.footnote}>A missed week is forgiven once every 4 weeks.</Text>
+      <Card>
+        <AppText variant="label" tone="faint">
+          LAST 6 WEEKS
+        </AppText>
+        <View style={styles.weekRow}>
+          <View style={styles.days}>
+            {DAY_LETTERS.map((letter, i) => (
+              <AppText key={i} variant="caption" tone="faint" style={styles.dayLetter}>
+                {letter}
+              </AppText>
+            ))}
+          </View>
+          <View style={styles.countCol} />
         </View>
-
-        <View style={styles.card}>
-          <Stepper label="Workouts per week" value={goal} step={1} min={1} onChange={changeGoal} />
-        </View>
-        <ReminderCard key={restoreCount} />
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Last 6 weeks</Text>
-          <View style={styles.weekRow}>
+        {calendar.map((w) => (
+          <View key={w.weekStart} style={styles.weekRow}>
             <View style={styles.days}>
-              {DAY_LETTERS.map((letter, i) => (
-                <Text key={i} style={styles.dayLetter}>
-                  {letter}
-                </Text>
+              {w.days.map((d) => (
+                <View
+                  key={d.dayStart}
+                  style={[
+                    styles.cell,
+                    d.active && styles.cellActive,
+                    d.isToday && styles.cellToday,
+                    d.isFuture && styles.cellFuture,
+                  ]}
+                />
               ))}
             </View>
-            <View style={styles.countCol} />
+            <AppText
+              variant="caption"
+              tone={w.met ? 'success' : 'muted'}
+              style={[styles.countCol, w.met && styles.countMet]}
+            >
+              {w.count}/{goal}
+            </AppText>
           </View>
-          {calendar.map((w) => (
-            <View key={w.weekStart} style={styles.weekRow}>
-              <View style={styles.days}>
-                {w.days.map((d) => (
-                  <View
-                    key={d.dayStart}
-                    style={[
-                      styles.cell,
-                      d.active && styles.cellActive,
-                      d.isToday && styles.cellToday,
-                      d.isFuture && styles.cellFuture,
-                    ]}
-                  />
-                ))}
-              </View>
-              <Text style={[styles.countCol, styles.count, w.met && styles.countMet]}>
-                {w.count}/{goal}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        <BackupCard
-          onRestored={() => {
-            loadSnapshot();
-            setRestoreCount((n) => n + 1);
-          }}
-        />
-      </ScrollView>
-    </SafeAreaView>
+        ))}
+      </Card>
+    </Screen>
   );
 }
 
-const CELL = 32;
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl },
-  title: { ...typography.title, color: colors.text },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  cardTitle: { ...typography.body, color: colors.text, fontWeight: '700' },
-  muted: { ...typography.body, color: colors.textMuted },
-  streakRow: { flexDirection: 'row', alignItems: 'baseline', gap: spacing.sm },
-  streakNumber: { ...typography.bigNumber, color: colors.primary },
-  streakLabel: { ...typography.body, color: colors.textMuted },
-  thisWeek: { ...typography.body, color: colors.text, fontWeight: '600' },
-  footnote: { ...typography.caption, color: colors.textMuted },
+  center: { textAlign: 'center' },
+  streakCard: { alignItems: 'center' },
   weekRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   days: { flex: 1, flexDirection: 'row', justifyContent: 'space-between' },
-  dayLetter: {
-    ...typography.caption,
-    color: colors.textMuted,
-    width: CELL,
-    textAlign: 'center',
-  },
+  dayLetter: { width: CELL, textAlign: 'center' },
   cell: {
     width: CELL,
     height: CELL,
@@ -180,6 +146,5 @@ const styles = StyleSheet.create({
   cellToday: { borderWidth: 2, borderColor: colors.primary },
   cellFuture: { opacity: 0.35 },
   countCol: { width: 40, textAlign: 'right' },
-  count: { ...typography.caption, color: colors.textMuted },
-  countMet: { color: colors.success, fontWeight: '700' },
+  countMet: { fontFamily: 'Outfit_700Bold' },
 });

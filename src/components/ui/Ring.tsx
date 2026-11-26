@@ -30,6 +30,10 @@ export function Ring({
   const [anim] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
+    if (duration <= 0) {
+      anim.setValue(target); // follow the value directly (timers)
+      return;
+    }
     // useNativeDriver must be false: SVG props are not driven natively.
     Animated.timing(anim, {
       toValue: target,

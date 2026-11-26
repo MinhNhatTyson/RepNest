@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, View } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import { AppText } from './ui/AppText';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
 import { Chip } from './Chip';
 import { getReminderPlan, setReminderPlan } from '../db/settingsRepository';
 import { TimeInput } from './TimeInput';
@@ -18,7 +21,7 @@ import {
   ensureReminderPermission,
   sendTestReminder,
 } from '../services/reminders';
-import { colors, minTapTarget, radius, spacing, typography } from '../theme';
+import { spacing } from '../theme';
 
 // "today at 08:30". Called from handlers, never during render.
 function nextLabel(plan: ReminderPlan): string | null {
@@ -105,13 +108,13 @@ export function ReminderCard() {
   }
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>Reminders</Text>
-      <Text style={styles.muted}>
+    <Card>
+      <AppText variant="heading">Reminders</AppText>
+      <AppText tone="muted">
         {draft.days.length === 0
           ? 'Pick the days you plan to train, then tap Save.'
           : formatPlan(draft)}
-      </Text>
+      </AppText>
 
       <View style={styles.days}>
         {DAY_LABELS.map((label, day) => (
@@ -130,59 +133,38 @@ export function ReminderCard() {
       />
 
       {dirty ? (
-        <Pressable
-          style={[styles.saveButton, busy && styles.disabled]}
+        <Button
+          size="md"
+          label={
+            busy ? 'Saving...' : draft.days.length === 0 ? 'Turn reminders off' : 'Save reminder'
+          }
           disabled={busy}
           onPress={onSave}
-        >
-          <Text style={styles.saveText}>
-            {busy ? 'Saving...' : draft.days.length === 0 ? 'Turn reminders off' : 'Save reminder'}
-          </Text>
-        </Pressable>
+        />
       ) : saved.days.length > 0 && next ? (
-        <Text style={styles.status}>Saved. Next reminder {next}.</Text>
+        <AppText variant="bodyStrong" tone="success">
+          Saved. Next reminder {next}.
+        </AppText>
       ) : null}
 
       {blocked ? (
-        <Text style={styles.muted}>
+        <AppText tone="muted">
           Notifications are off for Repnest. You can turn them on in your phone settings.
-        </Text>
+        </AppText>
       ) : null}
 
       {approximate ? (
-        <Text style={styles.muted}>
+        <AppText tone="muted">
           Your phone may deliver reminders a few minutes late. For exact times, allow &quot;Alarms
           &amp; reminders&quot; for Repnest in your phone settings.
-        </Text>
+        </AppText>
       ) : null}
 
-      <Pressable style={styles.testButton} onPress={onTest}>
-        <Text style={styles.testText}>Send a test reminder</Text>
-      </Pressable>
-    </View>
+      <Button variant="quiet" size="md" label="Send a test reminder" onPress={onTest} />
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  title: { ...typography.body, color: colors.text, fontWeight: '700' },
-  muted: { ...typography.body, color: colors.textMuted },
   days: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  saveButton: {
-    minHeight: minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-  },
-  saveText: { ...typography.body, color: colors.onPrimary, fontWeight: '700' },
-  status: { ...typography.body, color: colors.success, fontWeight: '600' },
-  disabled: { opacity: 0.4 },
-  testButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  testText: { ...typography.caption, color: colors.textMuted },
 });

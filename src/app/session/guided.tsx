@@ -1,25 +1,31 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { router, Stack } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppText } from '../../components/ui/AppText';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { Ring } from '../../components/ui/Ring';
+import { Screen } from '../../components/ui/Screen';
 import { getExerciseById } from '../../db/exerciseRepository';
+import { getSessionEndTimes, saveSession } from '../../db/sessionRepository';
+import { getWeeklyGoal } from '../../db/settingsRepository';
+import { completionLines, summarizeWeek, type WeekSummary } from '../../domain/consistency';
 import { buildLoggedSet, currentStep, setProgress } from '../../domain/guided';
 import { suggestSet } from '../../domain/session';
 import type { ActiveExercise } from '../../domain/types';
 import { useCountdown } from '../../hooks/useCountdown';
 import { useActiveSessionStore } from '../../store/activeSessionStore';
-import { colors, minTapTarget, radius, spacing, typography } from '../../theme';
-import { getSessionEndTimes, saveSession } from '../../db/sessionRepository';
-import { getWeeklyGoal } from '../../db/settingsRepository';
-import { completionLines, summarizeWeek, type WeekSummary } from '../../domain/consistency';
+import { colors, radius, spacing } from '../../theme';
 
 type Phase = 'intro' | 'ready' | 'work' | 'rest' | 'done';
 
 const READY_SECONDS = 5;
 const DEFAULT_TIMED_SECONDS = 30;
+const RING = 260;
+const STROKE = 22;
 
 const ignore = () => {};
 const cue = {
@@ -60,8 +66,6 @@ export default function GuidedSessionScreen() {
     };
   }, [db]);
 
-  // The actions below read the store with getState() so that timer callbacks
-  // created in an older render never see stale data.
   // When the workout is done, work out "Session N this week". The session is only
   // saved on Finish, so the current moment is added to the saved ones.
   useEffect(() => {
@@ -77,6 +81,9 @@ export default function GuidedSessionScreen() {
       cancelled = true;
     };
   }, [db, phase]);
+
+  // The actions below read the store with getState() so that timer callbacks
+  // created in an older render never see stale data.
   function step() {
     return currentStep(useActiveSessionStore.getState().session);
   }
@@ -190,13 +197,13 @@ export default function GuidedSessionScreen() {
 
   function onFinishEarly() {
     countdown.stop();
-    setPhase('done'); // shows "You showed up" + "Session N this week"; Finish there saves
+    setPhase('done'); // shows "You showed up" + the weekly ring; Finish there saves
     cue.done();
   }
 
   // Session was cleared (finished/quit) while the screen is closing.
   if (!session) {
-    return <View style={styles.container} />;
+    return <View style={styles.empty} />;
   }
 
   const next = currentStep(session);
@@ -207,20 +214,45 @@ export default function GuidedSessionScreen() {
   const instruction = exercise ? instructions[exercise.exerciseId] : undefined;
   const setLabel = next ? `SET ${next.setIndex + 1} OF ${next.exercise.targetSets}` : '';
   const lines = week ? completionLines(week) : null;
+  const weekReached = week !== null && week.remaining === 0;
+
+  const footer = (
+    <>
+      {phase === 'intro' && (
+        <Button label={done > 0 ? 'Resume' : "Let's go"} icon="play" onPress={onBegin} />
+      )}
+      {phase === 'ready' && <Button variant="secondary" label="Start now" onPress={onSkipReady} />}
+      {phase === 'work' && !timed && <Button label="Done" icon="checkmark" onPress={onDoneReps} />}
+      {phase === 'work' && timed && (
+        <Button variant="secondary" label="Done early" onPress={onStopTimed} />
+      )}
+      {phase === 'rest' && <Button variant="secondary" label="Skip rest" onPress={onSkipRest} />}
+      {phase === 'done' && (
+        <Button label="Finish" icon="checkmark" disabled={saving} onPress={onFinish} />
+      )}
+      {phase !== 'done' && phase !== 'intro' && done > 0 ? (
+        <Button
+          variant="quiet"
+          label={`Finish early · ${done} sets so far`}
+          onPress={onFinishEarly}
+        />
+      ) : null}
+    </>
+  );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+    <Screen edges={['top', 'bottom']} footer={footer}>
       <Stack.Screen options={{ gestureEnabled: false }} />
 
       <View style={styles.topBar}>
-        <Text style={styles.title} numberOfLines={1}>
+        <AppText tone="muted" numberOfLines={1} style={styles.topTitle}>
           {session.name}
-        </Text>
-        <Pressable style={styles.topButton} onPress={onTrackingView}>
-          <Text style={styles.topButtonText}>Tracking</Text>
+        </AppText>
+        <Pressable style={styles.topButton} onPress={onTrackingView} accessibilityRole="button">
+          <AppText tone="muted">Tracking</AppText>
         </Pressable>
-        <Pressable style={styles.topButton} onPress={onQuit}>
-          <Text style={styles.topButtonText}>Quit</Text>
+        <Pressable style={styles.topButton} onPress={onQuit} accessibilityRole="button">
+          <AppText tone="muted">Quit</AppText>
         </Pressable>
       </View>
 
@@ -232,190 +264,155 @@ export default function GuidedSessionScreen() {
       <View style={styles.main}>
         {phase === 'intro' && (
           <>
-            <Text style={styles.label}>{done > 0 ? 'NEXT UP' : 'FIRST UP'}</Text>
-            <Text style={styles.heading}>{exercise?.exerciseName ?? session.name}</Text>
-            <Text style={styles.sub}>{total - done} sets to go</Text>
+            <AppText variant="label" tone="primary">
+              {done > 0 ? 'NEXT UP' : 'FIRST UP'}
+            </AppText>
+            <AppText variant="hero" style={styles.center}>
+              {exercise?.exerciseName ?? session.name}
+            </AppText>
+            <AppText tone="muted">{total - done} sets to go</AppText>
           </>
         )}
 
         {phase === 'ready' && exercise && (
           <>
-            <Text style={styles.label}>GET READY</Text>
-            <Text style={styles.heading}>{exercise.exerciseName}</Text>
-            <Text style={styles.bigNumber}>{countdown.remainingSeconds}</Text>
-            {instruction ? <Text style={styles.instruction}>{instruction}</Text> : null}
+            <AppText variant="label" tone="primary">
+              GET READY
+            </AppText>
+            <AppText variant="hero" style={styles.center}>
+              {exercise.exerciseName}
+            </AppText>
+            <Ring size={RING} strokeWidth={STROKE} progress={countdown.fraction} duration={0}>
+              <AppText variant="display" style={styles.timer}>
+                {countdown.remainingSeconds}
+              </AppText>
+            </Ring>
+            {instruction ? (
+              <AppText tone="muted" style={styles.center}>
+                {instruction}
+              </AppText>
+            ) : null}
           </>
         )}
 
         {phase === 'work' && exercise && suggested && (
           <>
-            <Text style={styles.label}>{setLabel}</Text>
-            <Text style={styles.heading}>{exercise.exerciseName}</Text>
+            <AppText variant="label" tone="primary">
+              {setLabel}
+            </AppText>
+            <AppText variant="hero" style={styles.center}>
+              {exercise.exerciseName}
+            </AppText>
             {timed ? (
-              <>
-                <Text style={styles.bigNumber}>{countdown.remainingSeconds}</Text>
-                <View style={styles.track}>
-                  <View style={[styles.fill, { flex: countdown.fraction }]} />
-                  <View style={{ flex: 1 - countdown.fraction }} />
-                </View>
-              </>
+              <Ring size={RING} strokeWidth={STROKE} progress={countdown.fraction} duration={0}>
+                <AppText variant="display" style={styles.timer}>
+                  {countdown.remainingSeconds}
+                </AppText>
+              </Ring>
             ) : (
-              <Text style={styles.bigNumber}>
-                {suggested.amount}
-                <Text style={styles.unit}>
-                  {suggested.weight > 0 ? ` reps · ${suggested.weight} kg` : ' reps'}
-                </Text>
-              </Text>
+              <Card variant="hero" style={styles.statCard}>
+                <AppText variant="display" style={styles.timer}>
+                  {suggested.amount}
+                </AppText>
+                <AppText variant="heading" tone="muted">
+                  {suggested.weight > 0 ? `reps · ${suggested.weight} kg` : 'reps'}
+                </AppText>
+              </Card>
             )}
-            {instruction ? <Text style={styles.instruction}>{instruction}</Text> : null}
+            {instruction ? (
+              <AppText tone="muted" style={styles.center}>
+                {instruction}
+              </AppText>
+            ) : null}
           </>
         )}
 
         {phase === 'rest' && (
           <>
-            <Text style={styles.label}>REST</Text>
-            <Text style={styles.bigNumber}>{countdown.remainingSeconds}</Text>
+            <AppText variant="label" tone="success">
+              REST
+            </AppText>
+            <Ring
+              size={RING}
+              strokeWidth={STROKE}
+              progress={countdown.fraction}
+              color={colors.success}
+              duration={0}
+            >
+              <AppText variant="display" style={styles.timer}>
+                {countdown.remainingSeconds}
+              </AppText>
+            </Ring>
             {next ? (
-              <Text style={styles.sub}>
-                Next: {next.exercise.exerciseName} · set {next.setIndex + 1} of{' '}
-                {next.exercise.targetSets}
-              </Text>
+              <Card variant="quiet" style={styles.statCard}>
+                <AppText variant="label" tone="faint">
+                  NEXT
+                </AppText>
+                <AppText variant="heading" style={styles.center}>
+                  {next.exercise.exerciseName}
+                </AppText>
+                <AppText variant="caption" tone="muted">
+                  Set {next.setIndex + 1} of {next.exercise.targetSets}
+                </AppText>
+              </Card>
             ) : null}
           </>
         )}
 
         {phase === 'done' && (
           <>
-            <Text style={styles.label}>DONE</Text>
-            <Text style={styles.heading}>You showed up.</Text>
-            <Text style={styles.sub}>{done} sets completed. Nice work.</Text>
-            {week && lines ? (
-              <View style={styles.weekCard}>
-                <Text style={styles.weekHeadline}>{lines.headline}</Text>
-                <View style={styles.dots}>
-                  {Array.from({ length: Math.max(week.goal, week.done) }, (_, i) => (
-                    <View key={i} style={[styles.dot, i < week.done && styles.dotFilled]} />
-                  ))}
-                </View>
-                <Text style={styles.sub}>{lines.sub}</Text>
-              </View>
+            <AppText variant="label" tone="success">
+              DONE
+            </AppText>
+            <AppText variant="hero" style={styles.center}>
+              You showed up.
+            </AppText>
+            <Ring
+              size={220}
+              strokeWidth={20}
+              progress={week ? week.done / week.goal : 0}
+              color={weekReached ? colors.success : colors.primary}
+            >
+              <AppText variant="display">{week ? week.done : ''}</AppText>
+              <AppText variant="caption" tone="muted">
+                {week ? `of ${week.goal} this week` : ''}
+              </AppText>
+            </Ring>
+            {lines ? (
+              <>
+                <AppText variant="heading" style={styles.center}>
+                  {lines.headline}
+                </AppText>
+                <AppText tone="muted" style={styles.center}>
+                  {lines.sub}
+                </AppText>
+              </>
             ) : null}
+            <AppText variant="caption" tone="faint">
+              {done} sets completed
+            </AppText>
           </>
         )}
       </View>
-
-      <View style={styles.footer}>
-        {phase === 'intro' && (
-          <Pressable style={styles.primaryButton} onPress={onBegin}>
-            <Text style={styles.primaryText}>{done > 0 ? 'Resume' : "Let's go"}</Text>
-          </Pressable>
-        )}
-        {phase === 'ready' && (
-          <Pressable style={styles.secondaryButton} onPress={onSkipReady}>
-            <Text style={styles.secondaryText}>Start now</Text>
-          </Pressable>
-        )}
-        {phase === 'work' && !timed && (
-          <Pressable style={styles.primaryButton} onPress={onDoneReps}>
-            <Text style={styles.primaryText}>Done</Text>
-          </Pressable>
-        )}
-        {phase === 'work' && timed && (
-          <Pressable style={styles.secondaryButton} onPress={onStopTimed}>
-            <Text style={styles.secondaryText}>Done early</Text>
-          </Pressable>
-        )}
-        {phase === 'rest' && (
-          <Pressable style={styles.secondaryButton} onPress={onSkipRest}>
-            <Text style={styles.secondaryText}>Skip rest</Text>
-          </Pressable>
-        )}
-        {phase === 'done' && (
-          <Pressable
-            style={[styles.finishButton, saving && styles.disabled]}
-            disabled={saving}
-            onPress={onFinish}
-          >
-            <Text style={styles.primaryText}>Finish</Text>
-          </Pressable>
-        )}
-        {phase !== 'done' && phase !== 'intro' && done > 0 && (
-          <Pressable style={styles.textButton} onPress={onFinishEarly}>
-            <Text style={styles.textButtonText}>Finish early · {done} sets so far</Text>
-          </Pressable>
-        )}
-      </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  title: { ...typography.body, color: colors.textMuted, flex: 1 },
+  empty: { flex: 1, backgroundColor: colors.background },
+  topBar: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  topTitle: { flex: 1 },
   topButton: { minHeight: 44, justifyContent: 'center', paddingHorizontal: spacing.sm },
-  topButtonText: { ...typography.body, color: colors.textMuted },
   track: {
     flexDirection: 'row',
     height: 6,
-    borderRadius: 3,
+    borderRadius: radius.sm,
     backgroundColor: colors.surfaceRaised,
     overflow: 'hidden',
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.sm,
   },
   fill: { backgroundColor: colors.success },
-  main: { flex: 1, justifyContent: 'center', padding: spacing.lg, gap: spacing.md },
-  label: { ...typography.caption, color: colors.primary, fontWeight: '700' },
-  heading: { ...typography.title, fontSize: 34, color: colors.text },
-  sub: { ...typography.body, color: colors.textMuted },
-  bigNumber: { ...typography.bigNumber, fontSize: 96, lineHeight: 104, color: colors.text },
-  unit: { ...typography.body, color: colors.textMuted },
-  instruction: { ...typography.body, color: colors.textMuted, lineHeight: 24 },
-  weekCard: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  weekHeadline: { ...typography.body, fontSize: 20, color: colors.text, fontWeight: '700' },
-  dots: { flexDirection: 'row', gap: spacing.sm },
-  dot: { width: 16, height: 16, borderRadius: 8, backgroundColor: colors.surfaceRaised },
-  dotFilled: { backgroundColor: colors.success },
-  footer: { padding: spacing.md, gap: spacing.sm },
-  primaryButton: {
-    minHeight: minTapTarget + 16,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  finishButton: {
-    minHeight: minTapTarget + 16,
-    borderRadius: radius.md,
-    backgroundColor: colors.success,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryText: { ...typography.body, fontSize: 20, color: colors.onPrimary, fontWeight: '800' },
-  secondaryButton: {
-    minHeight: minTapTarget + 16,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryText: { ...typography.body, fontSize: 18, color: colors.text, fontWeight: '700' },
-  textButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  textButtonText: { ...typography.caption, color: colors.textMuted },
-  disabled: { opacity: 0.4 },
+  main: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  center: { textAlign: 'center' },
+  timer: { fontSize: 88, lineHeight: 92 },
+  statCard: { alignItems: 'center', alignSelf: 'stretch' },
 });

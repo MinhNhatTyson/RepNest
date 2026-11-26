@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { ExerciseType, WorkoutDraft, WorkoutItem, WorkoutSummary } from '../domain/types';
 
-type SummaryRow = { id: number; name: string; exercise_count: number };
+type SummaryRow = { id: number; name: string; exercise_count: number; program: string | null };
 
 type ItemRow = {
   id: number;
@@ -16,13 +16,18 @@ type ItemRow = {
 
 export async function listWorkouts(db: SQLiteDatabase): Promise<WorkoutSummary[]> {
   const rows = await db.getAllAsync<SummaryRow>(
-    `SELECT w.id, w.name, COUNT(we.id) AS exercise_count
+    `SELECT w.id, w.name, w.program, COUNT(we.id) AS exercise_count
      FROM workouts w
      LEFT JOIN workout_exercises we ON we.workout_id = w.id
      GROUP BY w.id
      ORDER BY w.created_at DESC`,
   );
-  return rows.map((r) => ({ id: r.id, name: r.name, exerciseCount: r.exercise_count }));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    exerciseCount: r.exercise_count,
+    program: r.program,
+  }));
 }
 
 export async function getWorkout(db: SQLiteDatabase, id: number): Promise<WorkoutDraft | null> {

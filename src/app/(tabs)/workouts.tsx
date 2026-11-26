@@ -1,22 +1,30 @@
 import { useCallback, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Alert, FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import type { WorkoutSummary } from '../../domain/types';
-import { colors, minTapTarget, radius, spacing, typography } from '../../theme';
-import { getPreviousSets } from '../../db/sessionRepository';
-import { useActiveSessionStore } from '../../store/activeSessionStore';
-import { Link, useFocusEffect } from 'expo-router';
+import { AppText } from '../../components/ui/AppText';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { IconButton } from '../../components/ui/IconButton';
+import { Screen } from '../../components/ui/Screen';
 import { deleteWorkout, duplicateWorkout, listWorkouts } from '../../db/workoutRepository';
+import type { WorkoutSummary } from '../../domain/types';
 import { startWorkout } from '../../services/startWorkout';
+import { colors, radius, spacing } from '../../theme';
+
+const PROGRAM_LABEL: Record<string, string> = {
+  starter: 'STARTER PROGRAM',
+  lite: 'QUICK SESSION',
+};
 
 export default function WorkoutsScreen() {
   const db = useSQLiteContext();
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
     setWorkouts(await listWorkouts(db));
+    setLoaded(true);
   }, [db]);
 
   // Reload every time this tab regains focus (e.g. after saving in the editor).
@@ -27,120 +35,140 @@ export default function WorkoutsScreen() {
   );
 
   function confirmDelete(workout: WorkoutSummary) {
-    Alert.alert('Delete workout?', workout.name, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteWorkout(db, workout.id);
-          await refresh();
+    Alert.alert(
+      'Delete workout?',
+      `"${workout.name}" will be removed. Your past sessions stay in History.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteWorkout(db, workout.id);
+            await refresh();
+          },
         },
+      ],
+    );
+  }
+
+  function openMenu(workout: WorkoutSummary) {
+    const duplicate = {
+      text: 'Duplicate',
+      onPress: () => {
+        duplicateWorkout(db, workout.id).then(refresh);
       },
+    };
+    const cancel = { text: 'Cancel', style: 'cancel' as const };
+
+    if (workout.program !== null) {
+      // Built-in workouts power Today and the 5-minute button, so they stay.
+      Alert.alert(workout.name, 'Part of your program, so it cannot be deleted.', [
+        duplicate,
+        cancel,
+      ]);
+      return;
+    }
+    Alert.alert(workout.name, undefined, [
+      duplicate,
+      { text: 'Delete', style: 'destructive', onPress: () => confirmDelete(workout) },
+      cancel,
     ]);
   }
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Workouts</Text>
-        <Link href={{ pathname: '/workout/[id]', params: { id: 'new' } }} asChild>
-          <Pressable style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>New workout</Text>
-          </Pressable>
-        </Link>
-        <Link href="/exercises" asChild>
-          <Pressable style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Exercise library</Text>
-          </Pressable>
-        </Link>
-      </View>
+  const headerActions = (
+    <View style={styles.headerActions}>
+      <IconButton
+        icon="library-outline"
+        label="Exercise library"
+        onPress={() => router.push('/exercises')}
+      />
+      <IconButton
+        icon="add"
+        label="New workout"
+        tone="primary"
+        onPress={() => router.push({ pathname: '/workout/[id]', params: { id: 'new' } })}
+      />
+    </View>
+  );
 
+  return (
+    <Screen title="Workouts" right={headerActions}>
       <FlatList
         data={workouts}
         keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={styles.list}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <Text style={styles.empty}>No workouts yet. Create your first one above.</Text>
+          loaded ? (
+            <Card variant="quiet">
+              <AppText variant="heading">No workouts yet</AppText>
+              <AppText tone="muted">Build your first one, it takes a minute.</AppText>
+              <Button
+                variant="secondary"
+                size="md"
+                label="New workout"
+                onPress={() => router.push({ pathname: '/workout/[id]', params: { id: 'new' } })}
+              />
+            </Card>
+          ) : undefined
         }
         renderItem={({ item }) => (
-          <Link href={{ pathname: '/workout/[id]', params: { id: String(item.id) } }} asChild>
-            <Pressable style={styles.row}>
-              <View style={styles.rowText}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.meta}>
-                  {item.exerciseCount} {item.exerciseCount === 1 ? 'exercise' : 'exercises'}
-                </Text>
-              </View>
-              <Pressable
-                style={styles.iconButton}
-                onPress={() => startWorkout(db, item.id)}
-                accessibilityLabel="Start workout"
-              >
-                <Ionicons name="play-circle" size={30} color={colors.primary} />
-              </Pressable>
-              <Pressable
-                style={styles.iconButton}
-                onPress={() => duplicateWorkout(db, item.id).then(refresh)}
-                accessibilityLabel="Duplicate workout"
-              >
-                <Ionicons name="copy-outline" size={22} color={colors.textMuted} />
-              </Pressable>
-              <Pressable
-                style={styles.iconButton}
-                onPress={() => confirmDelete(item)}
-                accessibilityLabel="Delete workout"
-              >
-                <Ionicons name="trash-outline" size={22} color={colors.textMuted} />
-              </Pressable>
-            </Pressable>
-          </Link>
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+            onPress={() =>
+              router.push({ pathname: '/workout/[id]', params: { id: String(item.id) } })
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${item.name}`}
+          >
+            <View style={styles.rowText}>
+              {item.program && PROGRAM_LABEL[item.program] ? (
+                <AppText variant="label" tone="faint">
+                  {PROGRAM_LABEL[item.program]}
+                </AppText>
+              ) : null}
+              <AppText variant="heading" numberOfLines={1}>
+                {item.name}
+              </AppText>
+              <AppText variant="caption" tone="muted">
+                {item.exerciseCount} {item.exerciseCount === 1 ? 'exercise' : 'exercises'}
+              </AppText>
+            </View>
+            <IconButton
+              icon="play"
+              label={`Start ${item.name}`}
+              tone="primary"
+              onPress={() => startWorkout(db, item.id)}
+            />
+            <IconButton
+              icon="ellipsis-horizontal"
+              label={`More options for ${item.name}`}
+              onPress={() => openMenu(item)}
+            />
+          </Pressable>
         )}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { padding: spacing.lg, gap: spacing.sm },
-  title: { ...typography.title, color: colors.text },
-  primaryButton: {
-    marginTop: spacing.sm,
-    minHeight: minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-  },
-  primaryButtonText: { ...typography.body, color: colors.onPrimary, fontWeight: '700' },
-  secondaryButton: {
-    minHeight: minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  secondaryButtonText: { ...typography.body, color: colors.text, fontWeight: '600' },
-  list: { paddingHorizontal: spacing.md, paddingBottom: spacing.xl, gap: spacing.sm },
+  headerActions: { flexDirection: 'row', gap: spacing.sm },
+  list: { flex: 1 },
+  listContent: { gap: spacing.sm, paddingBottom: spacing.lg },
   row: {
-    minHeight: minTapTarget,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingLeft: spacing.md,
-    paddingVertical: spacing.sm,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.xl,
+    paddingVertical: spacing.md,
+    paddingLeft: spacing.lg,
+    paddingRight: spacing.md,
   },
+  rowPressed: { opacity: 0.85 },
   rowText: { flex: 1, gap: 2 },
-  name: { ...typography.body, color: colors.text, fontWeight: '600' },
-  meta: { ...typography.caption, color: colors.textMuted },
-  iconButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  empty: {
-    ...typography.body,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: spacing.xl,
-  },
 });

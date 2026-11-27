@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { colors } from '../../theme';
+import { colors, headerScreenOptions } from '../../theme';
 
 export default function WorkoutLayout() {
   return (
@@ -12,6 +12,7 @@ export default function WorkoutLayout() {
     >
       <Stack.Screen name="[id]" options={{ title: 'Workout' }} />
       <Stack.Screen name="pick-exercise" options={{ title: 'Add exercise' }} />
+      <Stack screenOptions={headerScreenOptions}></Stack>
     </Stack>
   );
 }

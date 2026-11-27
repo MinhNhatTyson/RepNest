@@ -8,13 +8,14 @@ import { Screen } from '../../components/ui/Screen';
 import { getSessionEndTimes } from '../../db/sessionRepository';
 import { getWeeklyGoal } from '../../db/settingsRepository';
 import {
+  GRACE_EVERY_WEEKS,
   addDays,
   buildCalendar,
   lastWeekLine,
   startOfWeek,
   summarizeWeek,
 } from '../../domain/consistency';
-import { colors, spacing } from '../../theme';
+import { colors, font, spacing } from '../../theme';
 
 type Snapshot = { goal: number; times: number[]; now: number };
 
@@ -84,7 +85,7 @@ export default function HistoryScreen() {
         ) : null}
       </Card>
       <AppText variant="caption" tone="faint" style={styles.center}>
-        A missed week is forgiven once every 4 weeks.
+        A missed week is forgiven once every {GRACE_EVERY_WEEKS} weeks.
       </AppText>
 
       <Card>
@@ -146,5 +147,5 @@ const styles = StyleSheet.create({
   cellToday: { borderWidth: 2, borderColor: colors.primary },
   cellFuture: { opacity: 0.35 },
   countCol: { width: 40, textAlign: 'right' },
-  countMet: { fontFamily: 'Outfit_700Bold' },
+  countMet: { fontFamily: font.bold },
 });

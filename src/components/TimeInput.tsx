@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, TextInput, View } from 'react-native';
+import { AppText } from './ui/AppText';
 import { Chip } from './Chip';
 import { formatMinuteOfDay, parseTimePart } from '../domain/reminders';
-import { colors, minTapTarget, radius, spacing, typography } from '../theme';
+import { colors, font, minTapTarget, radius, spacing } from '../theme';
 
 type Props = {
   minuteOfDay: number;
@@ -45,7 +46,7 @@ export function TimeInput({ minuteOfDay, onChange }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Time</Text>
+      <AppText tone="muted">Time</AppText>
       <View style={styles.fields}>
         <TextInput
           style={styles.input}
@@ -57,7 +58,9 @@ export function TimeInput({ minuteOfDay, onChange }: Props) {
           selectTextOnFocus
           accessibilityLabel="Hour"
         />
-        <Text style={styles.colon}>:</Text>
+        <AppText variant="title" tone="muted">
+          :
+        </AppText>
         <TextInput
           style={styles.input}
           value={minuteDraft ?? pad(minute)}
@@ -68,7 +71,9 @@ export function TimeInput({ minuteOfDay, onChange }: Props) {
           selectTextOnFocus
           accessibilityLabel="Minute"
         />
-        <Text style={styles.hint}>24-hour</Text>
+        <AppText variant="caption" tone="muted" style={styles.hint}>
+          24-hour
+        </AppText>
       </View>
       <View style={styles.presets}>
         {PRESETS.map((value) => (
@@ -86,10 +91,10 @@ export function TimeInput({ minuteOfDay, onChange }: Props) {
 
 const styles = StyleSheet.create({
   container: { gap: spacing.sm },
-  label: { ...typography.body, color: colors.textMuted },
   fields: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   input: {
-    ...typography.title,
+    fontFamily: font.bold,
+    fontSize: 28,
     color: colors.text,
     backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
@@ -97,9 +102,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     height: minTapTarget,
     width: 72,
+    paddingVertical: 0,
     textAlign: 'center',
   },
-  colon: { ...typography.title, color: colors.textMuted },
-  hint: { ...typography.caption, color: colors.textMuted, marginLeft: spacing.sm },
+  hint: { marginLeft: spacing.sm },
   presets: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });

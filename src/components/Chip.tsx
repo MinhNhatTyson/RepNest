@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { Pressable, StyleSheet } from 'react-native';
+import { AppText } from './ui/AppText';
+import { colors, radius, spacing } from '../theme';
 
 type Props = {
   label: string;
@@ -11,25 +12,32 @@ export function Chip({ label, selected, onPress }: Props) {
   return (
     <Pressable
       onPress={onPress}
-      style={[styles.chip, selected && styles.chipSelected]}
+      style={({ pressed }) => [
+        styles.chip,
+        selected && styles.chipSelected,
+        pressed && styles.pressed,
+      ]}
       accessibilityRole="button"
       accessibilityState={{ selected }}
     >
-      <Text style={[styles.label, selected && styles.labelSelected]}>{label}</Text>
+      <AppText variant="bodyStrong" tone={selected ? 'onPrimary' : 'text'} style={styles.label}>
+        {label}
+      </AppText>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   chip: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.lg,
+    borderRadius: radius.pill,
     backgroundColor: colors.surfaceRaised,
     borderWidth: 1,
     borderColor: colors.border,
   },
   chipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
-  label: { ...typography.caption, color: colors.text },
-  labelSelected: { color: colors.onPrimary, fontWeight: '700' },
+  pressed: { opacity: 0.85 },
+  label: { fontSize: 14, lineHeight: 20 },
 });

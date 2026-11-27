@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, minTapTarget, radius, spacing, typography } from '../theme';
+import { AppText } from './ui/AppText';
+import { colors, minTapTarget, radius, spacing } from '../theme';
 
 type Props = {
   label: string;
@@ -16,22 +17,28 @@ const round = (n: number) => Math.round(n * 100) / 100; // avoids 0.1 + 0.2 styl
 export function BigStepper({ label, value, step, min, unit = '', onChange }: Props) {
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <AppText variant="caption" tone="muted">
+        {label}
+      </AppText>
       <View style={styles.row}>
         <Pressable
-          style={styles.button}
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
           onPress={() => onChange(Math.max(min, round(value - step)))}
+          accessibilityRole="button"
           accessibilityLabel={`Decrease ${label}`}
         >
           <Ionicons name="remove" size={28} color={colors.text} />
         </Pressable>
-        <Text style={styles.value}>
+        <AppText variant="hero" style={styles.value}>
           {value}
-          <Text style={styles.unit}>{unit ? ` ${unit}` : ''}</Text>
-        </Text>
+          <AppText variant="heading" tone="muted">
+            {unit ? ` ${unit}` : ''}
+          </AppText>
+        </AppText>
         <Pressable
-          style={styles.button}
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
           onPress={() => onChange(round(value + step))}
+          accessibilityRole="button"
           accessibilityLabel={`Increase ${label}`}
         >
           <Ionicons name="add" size={28} color={colors.text} />
@@ -43,22 +50,15 @@ export function BigStepper({ label, value, step, min, unit = '', onChange }: Pro
 
 const styles = StyleSheet.create({
   container: { gap: spacing.xs },
-  label: { ...typography.caption, color: colors.textMuted },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   button: {
     width: minTapTarget,
     height: minTapTarget,
-    borderRadius: radius.md,
+    borderRadius: radius.pill,
     backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  value: {
-    ...typography.bigNumber,
-    fontSize: 44,
-    color: colors.text,
-    flex: 1,
-    textAlign: 'center',
-  },
-  unit: { ...typography.body, color: colors.textMuted },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.95 }] },
+  value: { flex: 1, textAlign: 'center' },
 });

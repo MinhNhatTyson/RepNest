@@ -1,5 +1,10 @@
-import { PlaceholderScreen } from '../../components/PlaceholderScreen';
+import { AppText } from '../../components/ui/AppText';
+import { Screen } from '../../components/ui/Screen';
 
 export default function ProgressScreen() {
-  return <PlaceholderScreen title="Progress" subtitle="PRs and charts will live here." />;
+  return (
+    <Screen title="Progress">
+      <AppText tone="muted">PRs and charts will live here.</AppText>
+    </Screen>
+  );
 }

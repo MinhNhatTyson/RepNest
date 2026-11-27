@@ -1,10 +1,13 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { AppText } from './ui/AppText';
 import { BigStepper } from './BigStepper';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
 import { formatSet, suggestSet } from '../domain/session';
 import type { ActiveExercise, LoggedSet } from '../domain/types';
-import { colors, radius, spacing, typography } from '../theme';
+import { colors, spacing } from '../theme';
 
 type Props = {
   exercise: ActiveExercise;
@@ -33,22 +36,22 @@ export function ActiveExerciseCard({ exercise, onLog, onUndo }: Props) {
   }
 
   return (
-    <View style={styles.card}>
+    <Card style={styles.card}>
       <View style={styles.header}>
-        <Text style={styles.name} numberOfLines={2}>
+        <AppText variant="heading" numberOfLines={2} style={styles.name}>
           {exercise.exerciseName}
-        </Text>
-        <Text style={[styles.progress, targetReached && styles.progressDone]}>
+        </AppText>
+        <AppText variant="bodyStrong" tone={targetReached ? 'success' : 'muted'}>
           {doneCount}/{exercise.targetSets}
-        </Text>
+        </AppText>
       </View>
 
       {exercise.sets.map((set, index) => (
         <View key={set.completedAt} style={styles.loggedRow}>
           <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-          <Text style={styles.loggedText}>
+          <AppText tone="muted">
             Set {index + 1} · {formatSet(set)}
-          </Text>
+          </AppText>
         </View>
       ))}
 
@@ -71,42 +74,21 @@ export function ActiveExerciseCard({ exercise, onLog, onUndo }: Props) {
         />
       )}
 
-      <Pressable style={styles.logButton} onPress={handleLog}>
-        <Text style={styles.logButtonText}>
-          {targetReached ? `Log extra set ${doneCount + 1}` : `Log set ${doneCount + 1}`}
-        </Text>
-      </Pressable>
+      <Button
+        label={targetReached ? `Log extra set ${doneCount + 1}` : `Log set ${doneCount + 1}`}
+        onPress={handleLog}
+      />
 
-      {doneCount > 0 && (
-        <Pressable style={styles.undoButton} onPress={onUndo}>
-          <Text style={styles.undoText}>Undo last set</Text>
-        </Pressable>
-      )}
-    </View>
+      {doneCount > 0 ? (
+        <Button variant="quiet" size="md" label="Undo last set" onPress={onUndo} />
+      ) : null}
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
+  card: { gap: spacing.md },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  name: { ...typography.title, fontSize: 22, color: colors.text, flex: 1 },
-  progress: { ...typography.body, color: colors.textMuted, fontWeight: '700' },
-  progressDone: { color: colors.success },
+  name: { flex: 1 },
   loggedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  loggedText: { ...typography.body, color: colors.textMuted },
-  logButton: {
-    minHeight: 64,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logButtonText: { ...typography.body, fontSize: 18, color: colors.onPrimary, fontWeight: '800' },
-  undoButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  undoText: { ...typography.caption, color: colors.textMuted },
 });

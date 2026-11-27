@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing, typography } from '../theme';
+import { AppText } from './ui/AppText';
+import { colors, radius, spacing } from '../theme';
 
 type Props = {
   label: string;
@@ -15,19 +16,23 @@ type Props = {
 export function Stepper({ label, value, step, min, unit = '', format, onChange }: Props) {
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
+      <AppText tone="muted">{label}</AppText>
       <View style={styles.controls}>
         <Pressable
-          style={styles.button}
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
           onPress={() => onChange(Math.max(min, value - step))}
+          accessibilityRole="button"
           accessibilityLabel={`Decrease ${label}`}
         >
           <Ionicons name="remove" size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.value}>{format ? format(value) : `${value}${unit}`}</Text>
+        <AppText variant="bodyStrong" style={styles.value}>
+          {format ? format(value) : `${value}${unit}`}
+        </AppText>
         <Pressable
-          style={styles.button}
+          style={({ pressed }) => [styles.button, pressed && styles.pressed]}
           onPress={() => onChange(value + step)}
+          accessibilityRole="button"
           accessibilityLabel={`Increase ${label}`}
         >
           <Ionicons name="add" size={22} color={colors.text} />
@@ -39,21 +44,15 @@ export function Stepper({ label, value, step, min, unit = '', format, onChange }
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  label: { ...typography.body, color: colors.textMuted },
   controls: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   button: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.md,
+    width: 48,
+    height: 48,
+    borderRadius: radius.pill,
     backgroundColor: colors.surfaceRaised,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  value: {
-    ...typography.body,
-    color: colors.text,
-    fontWeight: '700',
-    minWidth: 56,
-    textAlign: 'center',
-  },
+  pressed: { opacity: 0.8, transform: [{ scale: 0.95 }] },
+  value: { minWidth: 56, textAlign: 'center' },
 });

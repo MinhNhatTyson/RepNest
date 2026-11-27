@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSQLiteContext } from 'expo-sqlite';
+import { AppText } from './ui/AppText';
 import { Chip } from './Chip';
 import { searchExercises } from '../db/exerciseRepository';
 import {
@@ -10,7 +12,7 @@ import {
   type Exercise,
   type MuscleGroup,
 } from '../domain/types';
-import { colors, minTapTarget, radius, spacing, typography } from '../theme';
+import { colors, minTapTarget, radius, spacing } from '../theme';
 
 type Props = {
   onSelect: (exercise: Exercise) => void;
@@ -22,6 +24,7 @@ export function ExerciseBrowser({ onSelect }: Props) {
   const [muscleGroup, setMuscleGroup] = useState<MuscleGroup | null>(null);
   const [equipment, setEquipment] = useState<Equipment | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     let cancelled = false;
@@ -83,17 +86,29 @@ export function ExerciseBrowser({ onSelect }: Props) {
         data={exercises}
         keyExtractor={(item) => String(item.id)}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>No exercises match.</Text>}
+        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + spacing.xl }]}
+        ListEmptyComponent={
+          <AppText tone="muted" style={styles.empty}>
+            No exercises match.
+          </AppText>
+        }
         renderItem={({ item }) => (
-          <Pressable style={styles.row} onPress={() => onSelect(item)}>
+          <Pressable
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            onPress={() => onSelect(item)}
+            accessibilityRole="button"
+          >
             <View style={styles.rowText}>
-              <Text style={styles.name}>{item.name}</Text>
-              <Text style={styles.meta}>
+              <AppText variant="bodyStrong">{item.name}</AppText>
+              <AppText variant="caption" tone="muted">
                 {item.muscleGroup} · {item.equipment}
-              </Text>
+              </AppText>
             </View>
-            {item.type === 'timed' && <Text style={styles.badge}>TIMED</Text>}
+            {item.type === 'timed' ? (
+              <AppText variant="label" tone="success">
+                TIMED
+              </AppText>
+            ) : null}
           </Pressable>
         )}
       />
@@ -104,7 +119,7 @@ export function ExerciseBrowser({ onSelect }: Props) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, paddingTop: spacing.md },
   search: {
-    ...typography.body,
+    fontSize: 16,
     color: colors.text,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -116,24 +131,19 @@ const styles = StyleSheet.create({
   },
   chipScroll: { flexGrow: 0, marginTop: spacing.sm },
   chipRow: { paddingHorizontal: spacing.md, gap: spacing.sm },
-  list: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl },
+  list: { padding: spacing.md, gap: spacing.sm },
   row: {
     minHeight: minTapTarget,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: radius.md,
+    borderColor: colors.border,
+    borderWidth: 1,
+    borderRadius: radius.xl,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
+  pressed: { opacity: 0.85 },
   rowText: { flex: 1, gap: 2 },
-  name: { ...typography.body, color: colors.text, fontWeight: '600' },
-  meta: { ...typography.caption, color: colors.textMuted },
-  badge: { ...typography.caption, color: colors.success, fontWeight: '700' },
-  empty: {
-    ...typography.body,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: spacing.xl,
-  },
+  empty: { textAlign: 'center', marginTop: spacing.xl },
 });

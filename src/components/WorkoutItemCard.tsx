@@ -1,8 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, View } from 'react-native';
+import { AppText } from './ui/AppText';
+import { Card } from './ui/Card';
+import { IconButton } from './ui/IconButton';
 import { Stepper } from './Stepper';
 import type { WorkoutItem } from '../domain/types';
-import { colors, radius, spacing, typography } from '../theme';
+import { spacing } from '../theme';
 
 type Props = {
   item: WorkoutItem;
@@ -15,30 +17,24 @@ type Props = {
 
 export function WorkoutItemCard({ item, isFirst, isLast, onChange, onMove, onRemove }: Props) {
   return (
-    <View style={styles.card}>
+    <Card>
       <View style={styles.header}>
-        <Text style={styles.name} numberOfLines={2}>
+        <AppText variant="heading" numberOfLines={2} style={styles.name}>
           {item.exerciseName}
-        </Text>
-        <Pressable
-          style={[styles.iconButton, isFirst && styles.disabled]}
+        </AppText>
+        <IconButton
+          icon="chevron-up"
+          label="Move up"
           disabled={isFirst}
           onPress={() => onMove(-1)}
-          accessibilityLabel="Move up"
-        >
-          <Ionicons name="chevron-up" size={22} color={colors.text} />
-        </Pressable>
-        <Pressable
-          style={[styles.iconButton, isLast && styles.disabled]}
+        />
+        <IconButton
+          icon="chevron-down"
+          label="Move down"
           disabled={isLast}
           onPress={() => onMove(1)}
-          accessibilityLabel="Move down"
-        >
-          <Ionicons name="chevron-down" size={22} color={colors.text} />
-        </Pressable>
-        <Pressable style={styles.iconButton} onPress={onRemove} accessibilityLabel="Remove">
-          <Ionicons name="trash-outline" size={22} color={colors.textMuted} />
-        </Pressable>
+        />
+        <IconButton icon="trash-outline" label="Remove" onPress={onRemove} />
       </View>
 
       <Stepper
@@ -74,24 +70,11 @@ export function WorkoutItemCard({ item, isFirst, isLast, onChange, onMove, onRem
         unit="s"
         onChange={(restSeconds) => onChange({ restSeconds })}
       />
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  name: { ...typography.body, color: colors.text, fontWeight: '700', flex: 1 },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  disabled: { opacity: 0.3 },
+  name: { flex: 1 },
 });

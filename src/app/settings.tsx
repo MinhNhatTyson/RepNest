@@ -9,7 +9,7 @@ import { Screen } from '../components/ui/Screen';
 import { Stepper } from '../components/Stepper';
 import { getWeeklyGoal, setWeeklyGoal } from '../db/settingsRepository';
 import { MAX_WEEKLY_GOAL } from '../domain/consistency';
-import { colors, font } from '../theme';
+import { headerScreenOptions } from '../theme';
 
 export default function SettingsScreen() {
   const db = useSQLiteContext();
@@ -34,15 +34,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen scroll edges={['bottom']}>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Settings',
-          headerStyle: { backgroundColor: colors.surface },
-          headerTintColor: colors.text,
-          headerTitleStyle: { fontFamily: font.bold },
-        }}
-      />
+      <Stack.Screen options={{ ...headerScreenOptions, headerShown: true, title: 'Settings' }} />
 
       {goal !== null ? (
         <Card>

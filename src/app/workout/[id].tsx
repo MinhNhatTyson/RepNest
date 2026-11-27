@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Link, router, Stack, useLocalSearchParams } from 'expo-router';
+import { Alert, StyleSheet, TextInput } from 'react-native';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppText } from '../../components/ui/AppText';
+import { Button } from '../../components/ui/Button';
+import { Screen } from '../../components/ui/Screen';
 import { WorkoutItemCard } from '../../components/WorkoutItemCard';
 import { getWorkout, saveWorkout } from '../../db/workoutRepository';
 import { emptyDraft } from '../../domain/workout';
 import { useWorkoutDraftStore } from '../../store/workoutDraftStore';
-import { colors, minTapTarget, radius, spacing, typography } from '../../theme';
+import { colors, minTapTarget, radius, spacing } from '../../theme';
 
 export default function WorkoutEditorScreen() {
   const db = useSQLiteContext();
@@ -56,11 +58,15 @@ export default function WorkoutEditorScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen
+      scroll
+      edges={['bottom']}
+      footer={<Button label="Save workout" disabled={!canSave} onPress={onSave} />}
+    >
       <Stack.Screen options={{ title: isNew ? 'New workout' : 'Edit workout' }} />
 
-      {ready && (
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      {ready ? (
+        <>
           <TextInput
             style={styles.nameInput}
             value={draft.name}
@@ -68,6 +74,10 @@ export default function WorkoutEditorScreen() {
             placeholder="Workout name"
             placeholderTextColor={colors.textMuted}
           />
+
+          {draft.items.length === 0 ? (
+            <AppText tone="muted">Add your first exercise to get going.</AppText>
+          ) : null}
 
           {draft.items.map((item, index) => (
             <WorkoutItemCard
@@ -81,32 +91,22 @@ export default function WorkoutEditorScreen() {
             />
           ))}
 
-          <Link href="/workout/pick-exercise" asChild>
-            <Pressable style={styles.secondaryButton}>
-              <Text style={styles.secondaryButtonText}>+ Add exercise</Text>
-            </Pressable>
-          </Link>
-        </ScrollView>
-      )}
-
-      <View style={styles.footer}>
-        <Pressable
-          style={[styles.primaryButton, !canSave && styles.disabled]}
-          disabled={!canSave}
-          onPress={onSave}
-        >
-          <Text style={styles.primaryButtonText}>Save workout</Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+          <Button
+            variant="secondary"
+            size="md"
+            icon="add"
+            label="Add exercise"
+            onPress={() => router.push('/workout/pick-exercise')}
+          />
+        </>
+      ) : null}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, gap: spacing.md },
   nameInput: {
-    ...typography.body,
+    fontSize: 16,
     color: colors.text,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -115,23 +115,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     height: minTapTarget,
   },
-  secondaryButton: {
-    minHeight: minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  secondaryButtonText: { ...typography.body, color: colors.primary, fontWeight: '700' },
-  footer: { padding: spacing.md },
-  primaryButton: {
-    minHeight: minTapTarget,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-  },
-  primaryButtonText: { ...typography.body, color: colors.onPrimary, fontWeight: '700' },
-  disabled: { opacity: 0.4 },
 });

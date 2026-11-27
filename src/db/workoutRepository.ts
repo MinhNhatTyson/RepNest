@@ -20,7 +20,7 @@ export async function listWorkouts(db: SQLiteDatabase): Promise<WorkoutSummary[]
      FROM workouts w
      LEFT JOIN workout_exercises we ON we.workout_id = w.id
      GROUP BY w.id
-     ORDER BY w.created_at DESC`,
+     ORDER BY (w.program IS NOT NULL), w.program DESC, w.program_order, w.created_at DESC`,
   );
   return rows.map((r) => ({
     id: r.id,
